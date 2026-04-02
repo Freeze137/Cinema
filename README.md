@@ -26,4 +26,3 @@ Releitura moderna e tecnológica da plataforma de cinema Kinoplex. Este projeto 
 
 PROJETO NAO PRONTO (NAO TEM VERSOES TESTE DISPONIVEL)
 
-

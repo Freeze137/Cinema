@@ -24,5 +24,5 @@ Releitura moderna e tecnológica da plataforma de cinema Kinoplex. Este projeto 
 -  **Persistência de Dados**: As reservas são salvas no SQLite, impedindo que o mesmo assento seja comprado duas vezes após o recarregamento.
 -  **Navegação Dinâmica**: Integração entre catálogo e tela de checkout via parâmetros de URL.
 
-PROJETO NAO PRONTO (NAO TEM VERSOES TESTE DISPONIVEL)
+PROJETO em desenvolvimento (NAO TEM VERSOES TESTE DISPONIVEL) 
 

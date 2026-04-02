@@ -20,8 +20,7 @@ async function loadMovies() {
 }
 
 function bookTicket(movieId) {
-    // Para simplificar, mapeamos filme 1 para sessao 1 e filme 2 para sessao 2
-    window.location.href = `Cinema Ticket Booking.html?sessaoId=${movieId}`;
+    window.location.href = `cinema.html?sessaoId=${movieId}`;
 }
 
 loadMovies();

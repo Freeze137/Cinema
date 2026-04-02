@@ -32,13 +32,22 @@ select { width: 100%; padding: 10px; background: #222; color: white; border: 1px
 
 /* Assentos */
 .cinema-screen { height: 8px; background: var(--color-primary); margin: 40px auto; border-radius: 50%; box-shadow: 0 5px 15px rgba(230,57,70,0.3); text-align: center; line-height: 0; color: var(--color-primary); font-weight: bold; padding-top: 15px; }
+
+.legend { display: flex; gap: 20px; justify-content: center; margin: 20px 0; }
+.legend-item { display: flex; align-items: center; gap: 8px; color: var(--color-text-secondary); font-size: 0.9rem; }
+.legend-seat { width: 24px; height: 24px; border-radius: 4px 4px 2px 2px; }
+.legend-seat.available { background: var(--color-available); }
+.legend-seat.selected { background: var(--color-selected); }
+.legend-seat.occupied { background: var(--color-occupied); }
+.legend-seat.vip { background: var(--color-occupied); border: 2px solid var(--color-vip); }
+
 .seating-section { display: flex; flex-direction: column; gap: 10px; align-items: center; margin-top: 50px; }
-.seat-row { display: flex; gap: 8px; align-items: center; }
+.seat-row { display: flex; gap: 8px; align-items: center; justify-content: center; }
 .seat { width: 32px; height: 32px; border: none; border-radius: 6px 6px 2px 2px; background: var(--color-occupied); color: white; font-size: 10px; cursor: pointer; }
 .seat.vip { border: 2px solid var(--color-vip); }
 .seat.selected { background: var(--color-selected); }
 .seat:disabled { cursor: not-allowed; opacity: 0.5; }
-.row-label { width: 20px; color: var(--color-text-secondary); font-weight: bold; }
+.row-label { width: 20px; text-align: right; margin-right: 5px; color: var(--color-text-secondary); font-weight: bold; }
 
 /* Resumo e Botões */
 .summary-item { display: flex; justify-content: space-between; margin: 10px 0; color: var(--color-text-secondary); }

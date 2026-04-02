@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novo Kinoplex - Reserva</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <button onclick="window.location.href='index.html'" style="margin-bottom: 20px; background: var(--color-surface); padding: 8px 15px;">← Voltar ao Catálogo</button>
+            <h1>🍿 Kinoplex</h1>
+        </header>
+
+        <div class="main-grid">
+            <div class="movie-section">
+                <div class="movie-header">
+                    <div class="movie-poster" style="background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));">🎬</div>
+                    <div class="movie-info">
+                        <h2 id="movieTitle">Carregando...</h2>
+                        <div class="movie-meta">
+                            <div class="meta-item" id="movieDuration">⏱️ -- min</div>
+                            <div class="meta-item" id="movieRating">⭐ --/10</div>
+                            <div class="meta-item" id="movieGenre">🎬 --</div>
+                        </div>
+                        <p id="movieSynopsis" style="color: var(--color-text-secondary);">Carregando informações...</p>
+                    </div>
+                </div>
+
+                <div class="controls-grid">
+                    <div class="control-group">
+                        <label>Cinema</label>
+                        <select id="cinemaSelect" disabled></select>
+                    </div>
+                    <div class="control-group">
+                        <label>Horário</label>
+                        <select id="showtimeSelect" disabled></select>
+                    </div>
+                </div>
+
+                <div class="cinema-screen">🎬 TELA KINOPLEX 🎬</div>
+
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-seat" style="background: var(--color-available);"></div><span>Livre</span></div>
+                    <div class="legend-item"><div class="legend-seat" style="background: var(--color-selected);"></div><span>Sua</span></div>
+                    <div class="legend-item"><div class="legend-seat" style="background: var(--color-occupied);"></div><span>Ocupado</span></div>
+                    <div class="legend-item"><div class="legend-seat" style="background: var(--color-vip);"></div><span>VIP</span></div>
+                </div>
+
+                <div class="seating-section" id="seatingArea"></div>
+            </div>
+
+            <div class="sidebar">
+                <div class="summary-card">
+                    <h3>Resumo</h3>
+                    <div class="summary-item"><span>Ingressos</span><span id="ticketCount">0</span></div>
+                    <div id="selectedSeatsList" style="display: none; margin: 10px 0;">
+                        <div id="seatTagsContainer"></div>
+                    </div>
+                    <div class="summary-item"><span>Preço Unit.</span><span id="unitPrice">R$ 0,00</span></div>
+                    <div class="summary-item"><span>Taxas</span><span id="taxPrice">R$ 2,50</span></div>
+                    <div class="price-total">
+                        <div>Total</div>
+                        <div id="totalPrice">R$ 0,00</div>
+                    </div>
+                    <button id="confirmBtn" onclick="confirmReservation()" disabled>Confirmar</button>
+                    <button onclick="clearSelection()" style="background: transparent; border: 1px solid var(--color-primary); margin-top: 10px;">Limpar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="toast" class="toast"></div>
+    <script src="script.js"></script>
+</body>
+</html>

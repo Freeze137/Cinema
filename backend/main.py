@@ -1,19 +1,34 @@
 import uuid
 import uvicorn
 import bcrypt 
+import os
+import enum
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime, Enum as SQLEnum
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
 from sqlalchemy.exc import IntegrityError
 from jose import JWTError, jwt
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# --- 0. ENUMS DO SISTEMA ---
+class TipoAssento(str, enum.Enum):
+    NORMAL = "NORMAL"
+    VIP = "VIP"
+
+class StatusAssento(str, enum.Enum):
+    DISPONIVEL = "DISPONIVEL"
+    OCUPADO = "OCUPADO"
+    MANUTENCAO = "MANUTENCAO"
 
 # --- 1. CONFIGURAÇÃO DO BANCO DE DADOS ---
-SQLALCHEMY_DATABASE_URL = "sqlite:///./backend/kinoplex.db"
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./backend/kinoplex.db")
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -46,7 +61,7 @@ class AssentoDB(Base):
     __tablename__ = "assentos"
     id = Column(Integer, primary_key=True, index=True)
     sessao_id = Column(Integer, ForeignKey("sessoes.id"), index=True)
-    codigo = Column(String); tipo = Column(String); status = Column(String)
+    codigo = Column(String); tipo = Column(SQLEnum(TipoAssento)); status = Column(SQLEnum(StatusAssento))
     sessao = relationship("SessaoDB", back_populates="assentos")
     reserva = relationship("ReservaDB", back_populates="assento", uselist=False)
 
@@ -74,7 +89,7 @@ def get_password_hash(password: str):
 def verify_password(plain_password: str, hashed_password: str):
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
-SECRET_KEY = "minha_chave_super_secreta_kinoplex"
+SECRET_KEY = os.getenv("SECRET_KEY", "minha_chave_super_secreta_kinoplex")
 ALGORITHM = "HS256"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -95,6 +110,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 class UserCreate(BaseModel):
     nome: str; email: str; password: str
+
+class ReservaCreate(BaseModel):
+    sessao_id: int
+    assentos: list[str]
 
 # --- 4. INICIALIZAÇÃO DA APP ---
 app = FastAPI(title="API Novo Kinoplex")
@@ -133,18 +152,51 @@ async def listar_filmes(db: Session = Depends(get_db)):
         })
     return resultado
 
+@app.get("/api/sessao/{sessao_id}")
+async def obter_sessao(sessao_id: int, db: Session = Depends(get_db)):
+    sessao = db.query(SessaoDB).filter(SessaoDB.id == sessao_id).first()
+    if not sessao:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+    assentos_db = db.query(AssentoDB).filter(AssentoDB.sessao_id == sessao_id).all()
+    return {
+        "filme": {
+            "titulo": sessao.filme.titulo, "duracao": sessao.filme.duracao, 
+            "avaliacao": sessao.filme.classificacao, "genero": sessao.filme.genero, 
+            "sinopse": sessao.filme.sinopse
+        },
+        "detalhes": {"cinema": sessao.cinema, "sala": sessao.sala, "horario": sessao.horario, "preco_ingresso": sessao.preco},
+        "assentos_ocupados": [a.codigo for a in assentos_db if a.status == StatusAssento.OCUPADO]
+    }
+
 @app.post("/api/reservas")
-async def criar_reserva(reserva: dict, db: Session = Depends(get_db), current_user: UserDB = Depends(get_current_user)):
-    sessao_id = reserva.get("sessao_id")
-    codigos = reserva.get("assentos")
-    assentos_db = db.query(AssentoDB).filter(AssentoDB.sessao_id == sessao_id, AssentoDB.codigo.in_(codigos)).all()
+async def criar_reserva(reserva: ReservaCreate, db: Session = Depends(get_db), current_user: UserDB = Depends(get_current_user)):
+    sessao = db.query(SessaoDB).filter(SessaoDB.id == reserva.sessao_id).first()
+    if not sessao: raise HTTPException(status_code=404, detail="Sessão não encontrada")
+    
+    assentos_db = db.query(AssentoDB).filter(AssentoDB.sessao_id == reserva.sessao_id, AssentoDB.codigo.in_(reserva.assentos)).all()
+    
+    if len(assentos_db) != len(reserva.assentos):
+        raise HTTPException(status_code=400, detail="Assentos inválidos.")
+
+    valor_total = 2.50 # Taxa de conveniência
+    assentos_detalhes = []
+    codigo_reserva = str(uuid.uuid4())[:8].upper()
     
     for a in assentos_db:
-        if a.status != "DISPONIVEL": raise HTTPException(status_code=400, detail=f"Assento {a.codigo} ocupado.")
-        a.status = "OCUPADO"
-        db.add(ReservaDB(sessao_id=sessao_id, assento_id=a.id, user_id=current_user.id, valor_pago=20.0))
+        if a.status != StatusAssento.DISPONIVEL: raise HTTPException(status_code=400, detail=f"Assento {a.codigo} ocupado ou em manutenção.")
+        
+        preco_assento = sessao.preco * 1.2 if a.tipo == TipoAssento.VIP else sessao.preco
+        valor_total += preco_assento
+        
+        a.status = StatusAssento.OCUPADO
+        db.add(ReservaDB(sessao_id=reserva.sessao_id, assento_id=a.id, user_id=current_user.id, valor_pago=preco_assento))
+        assentos_detalhes.append({"assento": a.codigo, "tipo": a.tipo.value, "valor": preco_assento})
+        
     db.commit()
-    return {"status": "sucesso", "reserva_id": str(uuid.uuid4())[:8].upper()}
+    return {
+        "status": "sucesso", "mensagem": "Reserva confirmada!", "reserva_id": codigo_reserva,
+        "detalhes": {"assentos": assentos_detalhes, "taxa": 2.50, "valor_total": valor_total}
+    }
 
 # NOVA ROTA: Histórico do Usuário
 @app.get("/api/minhas-reservas")
@@ -172,7 +224,7 @@ if __name__ == "__main__":
         db_seed.add(s1); db_seed.commit()
         for r in range(8):
             for s in range(1, 13):
-                db_seed.add(AssentoDB(sessao_id=s1.id, codigo=f"{chr(65+r)}{s}", tipo="NORMAL", status="DISPONIVEL"))
+                db_seed.add(AssentoDB(sessao_id=s1.id, codigo=f"{chr(65+r)}{s}", tipo=TipoAssento.NORMAL, status=StatusAssento.DISPONIVEL))
         db_seed.commit()
     db_seed.close()
     print("🚀 Servidor Kinoplex ON: http://127.0.0.1:8000/docs")

@@ -82,10 +82,21 @@ function updateSummary() {
 }
 
 async function confirmReservation() {
+    // Puxa o Token JWT que foi gerado no Login (que deve estar salvo no localStorage)
+    const token = localStorage.getItem('access_token');
+    
+    if (!token) {
+        showToast("Você precisa estar logado para realizar a compra.", "error");
+        return;
+    }
+
     try {
         const response = await fetch(`${API_BASE_URL}/reservas`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` 
+            },
             body: JSON.stringify({ sessao_id: currentSessionId, assentos: Array.from(selectedSeats) })
         });
         

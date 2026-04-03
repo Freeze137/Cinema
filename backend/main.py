@@ -1,6 +1,6 @@
 import uuid
 import uvicorn
-import bcrypt  # Usando diretamente para evitar erros de compatibilidade
+import bcrypt 
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -13,35 +13,32 @@ from sqlalchemy.exc import IntegrityError
 from jose import JWTError, jwt
 
 # --- 1. CONFIGURAÇÃO DO BANCO DE DADOS ---
-# Caminho fixo para garantir que o banco fique na pasta backend
 SQLALCHEMY_DATABASE_URL = "sqlite:///./backend/kinoplex.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# --- 2. MODELOS DAS TABELAS (DATABASE MODELS) ---
+# --- 2. MODELOS DAS TABELAS ---
 class UserDB(Base):
     __tablename__ = "usuarios"
     id = Column(Integer, primary_key=True, index=True)
-    nome = Column(String)
-    email = Column(String, unique=True, index=True)
+    nome = Column(String); email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     reservas = relationship("ReservaDB", back_populates="usuario")
 
 class FilmeDB(Base):
     __tablename__ = "filmes"
     id = Column(Integer, primary_key=True, index=True)
-    titulo = Column(String)
-    sinopse = Column(String)
-    duracao = Column(String)
-    genero = Column(String)
-    classificacao = Column(String)
+    titulo = Column(String); sinopse = Column(String); duracao = Column(String)
+    genero = Column(String); classificacao = Column(String)
+    sessoes = relationship("SessaoDB", back_populates="filme")
 
 class SessaoDB(Base):
     __tablename__ = "sessoes"
     id = Column(Integer, primary_key=True, index=True)
     filme_id = Column(Integer, ForeignKey("filmes.id"))
     cinema = Column(String); sala = Column(String); horario = Column(String); preco = Column(Float)
+    filme = relationship("FilmeDB", back_populates="sessoes")
     assentos = relationship("AssentoDB", back_populates="sessao")
     reservas = relationship("ReservaDB", back_populates="sessao")
 
@@ -64,24 +61,18 @@ class ReservaDB(Base):
     assento = relationship("AssentoDB", back_populates="reserva")
     usuario = relationship("UserDB", back_populates="reservas")
 
-# --- 3. UTILITÁRIOS E SEGURANÇA (BCRYPT DIRETO) ---
+# --- 3. UTILITÁRIOS E SEGURANÇA ---
 def get_db():
     db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    try: yield db
+    finally: db.close()
 
 def get_password_hash(password: str):
     pwd_bytes = password.encode('utf-8')
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(pwd_bytes, salt)
-    return hashed.decode('utf-8')
+    return bcrypt.hashpw(pwd_bytes, bcrypt.gensalt()).decode('utf-8')
 
 def verify_password(plain_password: str, hashed_password: str):
-    password_byte_enc = plain_password.encode('utf-8')
-    hashed_password_byte_enc = hashed_password.encode('utf-8')
-    return bcrypt.checkpw(password_byte_enc, hashed_password_byte_enc)
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 SECRET_KEY = "minha_chave_super_secreta_kinoplex"
 ALGORITHM = "HS256"
@@ -136,10 +127,9 @@ async def listar_filmes(db: Session = Depends(get_db)):
     filmes = db.query(FilmeDB).all()
     resultado = []
     for f in filmes:
-        sessoes = db.query(SessaoDB).filter(SessaoDB.filme_id == f.id).all()
         resultado.append({
             "id": f.id, "titulo": f.titulo, "sinopse": f.sinopse,
-            "sessoes": [{"id": s.id, "horario": s.horario, "sala": s.sala, "preco": s.preco} for s in sessoes]
+            "sessoes": [{"id": s.id, "horario": s.horario, "sala": s.sala, "preco": s.preco} for s in f.sessoes]
         })
     return resultado
 
@@ -153,9 +143,22 @@ async def criar_reserva(reserva: dict, db: Session = Depends(get_db), current_us
         if a.status != "DISPONIVEL": raise HTTPException(status_code=400, detail=f"Assento {a.codigo} ocupado.")
         a.status = "OCUPADO"
         db.add(ReservaDB(sessao_id=sessao_id, assento_id=a.id, user_id=current_user.id, valor_pago=20.0))
-    
     db.commit()
     return {"status": "sucesso", "reserva_id": str(uuid.uuid4())[:8].upper()}
+
+# NOVA ROTA: Histórico do Usuário
+@app.get("/api/minhas-reservas")
+async def listar_minhas_reservas(db: Session = Depends(get_db), current_user: UserDB = Depends(get_current_user)):
+    reservas = db.query(ReservaDB).filter(ReservaDB.user_id == current_user.id).all()
+    return [
+        {
+            "filme": r.sessao.filme.titulo,
+            "horario": r.sessao.horario,
+            "sala": r.sessao.sala,
+            "assento": r.assento.codigo,
+            "data": r.timestamp.strftime("%d/%m/%Y %H:%M")
+        } for r in reservas
+    ]
 
 # --- 6. STARTUP E SEED ---
 if __name__ == "__main__":
@@ -164,17 +167,13 @@ if __name__ == "__main__":
     if db_seed.query(FilmeDB).count() == 0:
         print("🌱 Populando banco...")
         f1 = FilmeDB(titulo="Duna 2", sinopse="Épico no deserto.", duracao="166 min", genero="Ficção", classificacao="14")
-        db_seed.add(f1)
-        db_seed.commit()
+        db_seed.add(f1); db_seed.commit()
         s1 = SessaoDB(filme_id=f1.id, cinema="Kinoplex RioSul", sala="01", horario="20:00", preco=35.0)
-        db_seed.add(s1)
-        db_seed.commit()
-        for r in range(5):
-            char = chr(65 + r)
-            for s in range(1, 6):
-                db_seed.add(AssentoDB(sessao_id=s1.id, codigo=f"{char}{s}", tipo="NORMAL", status="DISPONIVEL"))
+        db_seed.add(s1); db_seed.commit()
+        for r in range(8):
+            for s in range(1, 13):
+                db_seed.add(AssentoDB(sessao_id=s1.id, codigo=f"{chr(65+r)}{s}", tipo="NORMAL", status="DISPONIVEL"))
         db_seed.commit()
     db_seed.close()
-    
-    print("🚀 Servidor Kinoplex ligado em http://127.0.0.1:8000/docs")
+    print("🚀 Servidor Kinoplex ON: http://127.0.0.1:8000/docs")
     uvicorn.run(app, host="127.0.0.1", port=8000)

@@ -70,6 +70,27 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal de Ticket (Feedback Visual) -->
+    <div id="ticketModal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 1000;">
+        <div class="ticket" style="background: var(--color-surface); padding: 25px; border-radius: 12px; border: 2px dashed #444; width: 90%; max-width: 380px;">
+            <div class="ticket-header" style="text-align: center; margin-bottom: 20px; color: var(--color-primary); border-bottom: 2px dashed #444; padding-bottom: 15px;">
+                <h2 style="margin: 0;">🎟️ Seu Ingresso</h2>
+            </div>
+            <div class="ticket-body" style="color: var(--color-text-secondary);">
+                <p style="margin: 10px 0;"><strong>Código da Reserva:</strong> <span id="ticketReservaId" style="color: var(--color-text);"></span></p>
+                <p style="margin: 10px 0;"><strong>Filme:</strong> <span id="ticketMovieTitle" style="color: var(--color-text);"></span></p>
+                <p style="margin: 10px 0;"><strong>Assentos:</strong> <span id="ticketSeats" style="color: var(--color-text);"></span></p>
+                <hr style="border-color: #333; margin: 15px 0;">
+                <p style="display: flex; justify-content: space-between; margin: 10px 0;">
+                    <span>Total Pago:</span>
+                    <strong id="ticketTotal" style="color: var(--color-available); font-size: 1.2rem;"></strong>
+                </p>
+            </div>
+            <button onclick="closeTicket()" style="width: 100%; margin-top: 20px;">Concluir e Voltar</button>
+        </div>
+    </div>
+
     <div id="toast" class="toast"></div>
     <script src="script.js"></script>
 </body>

@@ -88,13 +88,36 @@ async function confirmReservation() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sessao_id: currentSessionId, assentos: Array.from(selectedSeats) })
         });
+        
+        const result = await response.json();
+        
         if (response.ok) {
-            showToast("Reserva confirmada!", "success");
+            showToast(result.mensagem, "success");
             selectedSeats.forEach(s => occupiedSeats.add(s));
             selectedSeats.clear();
-            setTimeout(() => { renderSeatingChart(); updateSummary(); }, 1000);
+            renderSeatingChart(); 
+            updateSummary();
+            showTicket(result);
+        } else {
+            showToast(result.detail || "Erro ao salvar", "error");
+            // Recarrega os dados caso haja conflito de assentos
+            fetchSessionData();
         }
-    } catch (e) { showToast("Erro ao salvar", "error"); }
+    } catch (e) { showToast("Erro de comunicação com o servidor", "error"); }
+}
+
+function showTicket(data) {
+    document.getElementById('ticketReservaId').textContent = data.reserva_id;
+    document.getElementById('ticketMovieTitle').textContent = document.getElementById('movieTitle').textContent;
+    const assentosStrs = data.detalhes.assentos.map(a => `${a.assento} (${a.tipo})`).join(', ');
+    document.getElementById('ticketSeats').textContent = assentosStrs;
+    document.getElementById('ticketTotal').textContent = `R$ ${data.detalhes.valor_total.toFixed(2).replace('.', ',')}`;
+    document.getElementById('ticketModal').style.display = 'flex';
+}
+
+function closeTicket() {
+    document.getElementById('ticketModal').style.display = 'none';
+    window.location.href = 'index.html';
 }
 
 function showToast(msg, type) {

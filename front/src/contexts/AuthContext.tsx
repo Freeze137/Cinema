@@ -1,53 +1,52 @@
-import React, { createContext, useState, useEffect } from 'react';
+import { createContext, useState, useEffect, type ReactNode, useContext } from 'react';
 import { api } from '../services/api';
 
-interface User {
-  email: string;
-}
-
-interface AuthContextData {
+export interface AuthContextData {
   isAuthenticated: boolean;
-  user: User | null;
-  signIn: (credentials: Record<string, string>) => Promise<void>;
-  signOut: () => void;
+  login: (token: string) => void;
+  logout: () => void;
+  loading: boolean;
 }
 
-export const AuthContext = createContext<AuthContextData>({} as AuthContextData);
+const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const isAuthenticated = !!user;
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('@Kinoplex:token');
+    
     if (token) {
-      // Simulando a persistência do usuário logado (pode ser ajustado buscando do backend via /me)
-      setUser({ email: 'usuario logado' });
+      // Injerta o token nas próximas requisições do axios automaticamente
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setIsAuthenticated(true);
     }
+    
+    setLoading(false);
   }, []);
 
-  async function signIn(credentials: Record<string, string>) {
-    const formData = new FormData();
-    formData.append('username', credentials.email);
-    formData.append('password', credentials.password);
+  const login = (token: string) => {
+    localStorage.setItem('@Kinoplex:token', token);
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    setIsAuthenticated(true);
+  };
 
-    try {
-      const response = await api.post('/auth/login', formData);
-      localStorage.setItem('@Kinoplex:token', response.data.access_token);
-      setUser({ email: credentials.email });
-    } catch (error) {
-      throw new Error('E-mail ou senha incorretos');
-    }
-  }
-
-  function signOut() {
+  const logout = () => {
     localStorage.removeItem('@Kinoplex:token');
-    setUser(null);
-  }
+    delete api.defaults.headers.common['Authorization'];
+    setIsAuthenticated(false);
+  };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, signIn, signOut }}>
+    <AuthContext.Provider value={{ isAuthenticated, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
+}
+
+// Hook personalizado para usar o Auth facilmente nos componentes
+export function useAuth() {
+  const context = useContext(AuthContext);
+  return context;
 }

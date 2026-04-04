@@ -4,7 +4,7 @@ import bcrypt
 import os
 import enum
 from datetime import datetime, timedelta
-from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi import FastAPI, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -14,6 +14,8 @@ from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
 from sqlalchemy.exc import IntegrityError
 from jose import JWTError, jwt
 from dotenv import load_dotenv
+import requests
+from typing import List, Dict
 
 load_dotenv()
 
@@ -130,6 +132,28 @@ async def root():
 async def integrity_error_handler(request: Request, exc: IntegrityError):
     return JSONResponse(status_code=409, content={"detail": "Assento ocupado."})
 
+# --- 4.5 WEBSOCKET MANAGER ---
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[int, List[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, sessao_id: int):
+        await websocket.accept()
+        if sessao_id not in self.active_connections:
+            self.active_connections[sessao_id] = []
+        self.active_connections[sessao_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, sessao_id: int):
+        if sessao_id in self.active_connections:
+            self.active_connections[sessao_id].remove(websocket)
+
+    async def broadcast(self, message: dict, sessao_id: int):
+        if sessao_id in self.active_connections:
+            for connection in self.active_connections[sessao_id]:
+                await connection.send_json(message)
+
+manager = ConnectionManager()
+
 # --- 5. ROTAS ---
 @app.post("/auth/register")
 async def register(user: UserCreate, db: Session = Depends(get_db)):
@@ -200,10 +224,27 @@ async def criar_reserva(reserva: ReservaCreate, db: Session = Depends(get_db), c
         assentos_detalhes.append({"assento": a.codigo, "tipo": a.tipo.value, "valor": preco_assento})
         
     db.commit()
+
+    # Notifica via WebSocket todos que estão olhando a mesma sessão
+    await manager.broadcast({
+        "event": "seats_updated",
+        "sessao_id": reserva.sessao_id,
+        "assentos_novos": [a.codigo for a in assentos_db]
+    }, reserva.sessao_id)
+
     return {
         "status": "sucesso", "mensagem": "Reserva confirmada!", "reserva_id": codigo_reserva,
         "detalhes": {"assentos": assentos_detalhes, "taxa": 2.50, "valor_total": valor_total}
     }
+
+@app.websocket("/ws/sessao/{sessao_id}")
+async def websocket_sessao(websocket: WebSocket, sessao_id: int):
+    await manager.connect(websocket, sessao_id)
+    try:
+        while True:
+            await websocket.receive_text() # Mantém a conexão ativa esperando desconexão
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, sessao_id)
 
 # NOVA ROTA: Histórico do Usuário
 @app.get("/api/minhas-reservas")
@@ -224,15 +265,35 @@ if __name__ == "__main__":
     Base.metadata.create_all(bind=engine)  # Reativado para criar as tabelas automaticamente
     db_seed = SessionLocal()
     if db_seed.query(FilmeDB).count() == 0:
-        print("🌱 Populando banco...")
-        f1 = FilmeDB(titulo="Duna 2", sinopse="Épico no deserto.", duracao="166 min", genero="Ficção", classificacao="14")
-        db_seed.add(f1); db_seed.commit()
-        s1 = SessaoDB(filme_id=f1.id, cinema="Kinoplex RioSul", sala="01", horario="20:00", preco=35.0)
-        db_seed.add(s1); db_seed.commit()
-        for r in range(8):
-            for s in range(1, 13):
-                db_seed.add(AssentoDB(sessao_id=s1.id, codigo=f"{chr(65+r)}{s}", tipo=TipoAssento.NORMAL, status=StatusAssento.DISPONIVEL))
-        db_seed.commit()
+        print("🌱 Tentando buscar filmes em cartaz no TMDB...")
+        tmdb_key = os.getenv("TMDB_API_KEY")
+        sucesso_tmdb = False
+        if tmdb_key:
+            url = f"https://api.themoviedb.org/3/movie/now_playing?api_key={tmdb_key}&language=pt-BR&page=1"
+            resp = requests.get(url)
+            if resp.status_code == 200:
+                for m in resp.json().get('results', [])[:4]: # Pega os 4 primeiros filmes em cartaz
+                    f = FilmeDB(titulo=m['title'], sinopse=m['overview'], duracao="120 min", genero="Em Cartaz", classificacao="12")
+                    db_seed.add(f); db_seed.commit()
+                    s = SessaoDB(filme_id=f.id, cinema="Kinoplex Master", sala="01", horario="20:00", preco=35.0)
+                    db_seed.add(s); db_seed.commit()
+                    for r in range(8):
+                        for c in range(1, 13):
+                            db_seed.add(AssentoDB(sessao_id=s.id, codigo=f"{chr(65+r)}{c}", tipo=TipoAssento.NORMAL, status=StatusAssento.DISPONIVEL))
+                    db_seed.commit()
+                sucesso_tmdb = True
+                print("✅ Filmes carregados do TMDB com sucesso!")
+        
+        if not sucesso_tmdb:
+            print("⚠️ Usando filme padrão (TMDB falhou ou sem chave configurada).")
+            f1 = FilmeDB(titulo="Duna 2", sinopse="Épico no deserto.", duracao="166 min", genero="Ficção", classificacao="14")
+            db_seed.add(f1); db_seed.commit()
+            s1 = SessaoDB(filme_id=f1.id, cinema="Kinoplex RioSul", sala="01", horario="20:00", preco=35.0)
+            db_seed.add(s1); db_seed.commit()
+            for r in range(8):
+                for s in range(1, 13):
+                    db_seed.add(AssentoDB(sessao_id=s1.id, codigo=f"{chr(65+r)}{s}", tipo=TipoAssento.NORMAL, status=StatusAssento.DISPONIVEL))
+            db_seed.commit()
     db_seed.close()
     print("🚀 Servidor Kinoplex ON: http://127.0.0.1:8000/docs")
     uvicorn.run(app, host="127.0.0.1", port=8000)

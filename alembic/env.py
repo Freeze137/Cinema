@@ -11,7 +11,7 @@ from alembic import context
 # --- LÓGICA DE CAMINHO CORRIGIDA PARA A ESTRUTURA DO KINOPLEX ---
 current_folder = Path(__file__).parent.resolve()
 project_root = current_folder.parent
-backend_path = project_root
+backend_path = project_root / "backend"
 
 sys.path.insert(0, str(backend_path))
 

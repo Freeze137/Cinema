@@ -5,7 +5,7 @@ import os
 import enum
 from datetime import datetime, timedelta
 from fastapi import FastAPI, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
@@ -28,7 +28,9 @@ class StatusAssento(str, enum.Enum):
     MANUTENCAO = "MANUTENCAO"
 
 # --- 1. CONFIGURAÇÃO DO BANCO DE DADOS ---
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./backend/kinoplex.db")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+db_path = os.path.join(BASE_DIR, 'kinoplex.db')
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{db_path}")
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -118,6 +120,11 @@ class ReservaCreate(BaseModel):
 # --- 4. INICIALIZAÇÃO DA APP ---
 app = FastAPI(title="API Novo Kinoplex")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+@app.get("/")
+async def root():
+    """ Rota raiz que redireciona automaticamente para a documentação interativa. """
+    return RedirectResponse(url="/docs")
 
 @app.exception_handler(IntegrityError)
 async def integrity_error_handler(request: Request, exc: IntegrityError):
@@ -214,7 +221,7 @@ async def listar_minhas_reservas(db: Session = Depends(get_db), current_user: Us
 
 # --- 6. STARTUP E SEED ---
 if __name__ == "__main__":
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine)  # Reativado para criar as tabelas automaticamente
     db_seed = SessionLocal()
     if db_seed.query(FilmeDB).count() == 0:
         print("🌱 Populando banco...")

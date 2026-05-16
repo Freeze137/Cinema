@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AuthContext } from '../contexts/AuthContext';
 import api from '../services/api';
-import { Film, Ticket, Clock, Search, Menu, X, ChevronRight, Star, MapPin } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Film, Ticket, Search, User, Play, Star, Clock, ChevronLeft, ChevronRight, Tv, Clapperboard, Tag, BookOpen, Phone } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface Sessao {
   id: number;
@@ -15,363 +16,396 @@ interface Filme {
   id: number;
   titulo: string;
   sinopse: string;
+  duracao?: string;
+  genero?: string;
+  classificacao?: string;
   sessoes: Sessao[];
 }
-
-const posterGradients = [
-  'from-violet-950 via-purple-900 to-zinc-900',
-  'from-blue-950 via-cyan-900 to-zinc-900',
-  'from-emerald-950 via-teal-900 to-zinc-900',
-  'from-rose-950 via-pink-900 to-zinc-900',
-  'from-orange-950 via-amber-900 to-zinc-900',
-  'from-indigo-950 via-blue-900 to-zinc-900',
-];
-
-const mockRatings = [4.8, 4.5, 4.2, 3.9, 4.7, 4.1];
 
 export function Home() {
   const [filmes, setFilmes] = useState<Filme[]>([]);
   const [loading, setLoading] = useState(true);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('Em Cartaz');
+  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.get('/api/filmes')
-      .then(r => setFilmes(r.data))
-      .catch(err => console.error('Erro ao buscar filmes:', err))
-      .finally(() => setLoading(false));
+    async function fetchFilmes() {
+      try {
+        const response = await api.get('/api/filmes');
+        setFilmes(response.data);
+      } catch (error) {
+        console.error('Erro ao buscar os filmes:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchFilmes();
   }, []);
 
-  const featured = filmes[0] ?? null;
-  const listaFilmes = searchQuery
-    ? filmes.filter(f => f.titulo.toLowerCase().includes(searchQuery.toLowerCase()))
-    : filmes;
+  const featuredMovie = filmes.length > 0 ? filmes[0] : null;
+  const filters = ['Em Cartaz', 'Séries', 'Anime'];
+
+  const heroBg = "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=1920&q=80";
+  const getPoster = (id: number) => `https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?auto=format&fit=crop&w=400&q=80&sig=${id}`;
+  const getBackdrop = (id: number) => `https://images.unsplash.com/photo-1518676590629-3dcbd9c5a5c9?auto=format&fit=crop&w=900&q=80&sig=${id + 10}`;
+
+  const navLinks = [
+    { label: 'Início', active: true },
+    { label: 'Filmes', active: false },
+    { label: 'Séries', active: false },
+    { label: 'Preços', active: false },
+    { label: 'Blog', active: false },
+    { label: 'Contato', active: false },
+  ];
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans">
+    <div className="min-h-screen bg-[#0f0f13] text-zinc-100 font-sans">
 
-      {/* ── NAVBAR ── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-zinc-950/85 backdrop-blur-xl border-b border-zinc-800/50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
-
-          <div className="flex items-center gap-2 shrink-0 cursor-default select-none">
-            <Film className="w-6 h-6 text-yellow-400" />
-            <span className="text-xl font-extrabold tracking-tight">
-              Kino<span className="text-yellow-400">plex</span>
-            </span>
-          </div>
-
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium">
-            <a href="#inicio" className="text-yellow-400 font-bold">Início</a>
-            <a href="#filmes" className="text-zinc-400 hover:text-white transition-colors duration-200">Filmes</a>
-            <a href="#filmes" className="text-zinc-400 hover:text-white transition-colors duration-200">Programação</a>
-            <a href="#filmes" className="text-zinc-400 hover:text-white transition-colors duration-200">Preços</a>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <AnimatePresence mode="wait">
-              {searchOpen ? (
-                <motion.div
-                  key="search-open"
-                  initial={{ width: 0, opacity: 0 }}
-                  animate={{ width: 220, opacity: 1 }}
-                  exit={{ width: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex items-center bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 gap-2 overflow-hidden"
-                >
-                  <Search className="w-4 h-4 text-zinc-400 shrink-0" />
-                  <input
-                    autoFocus
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    placeholder="Buscar filme..."
-                    className="bg-transparent text-sm text-zinc-100 outline-none w-full placeholder:text-zinc-500"
-                  />
-                  <button onClick={() => { setSearchOpen(false); setSearchQuery(''); }}>
-                    <X className="w-4 h-4 text-zinc-400 hover:text-white transition-colors" />
-                  </button>
-                </motion.div>
-              ) : (
-                <motion.button
-                  key="search-closed"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  onClick={() => setSearchOpen(true)}
-                  className="p-2 text-zinc-400 hover:text-white transition-colors"
-                >
-                  <Search className="w-5 h-5" />
-                </motion.button>
-              )}
-            </AnimatePresence>
-
-            <button
-              onClick={() => navigate('/login')}
-              className="hidden md:flex items-center px-5 py-2 rounded-xl border border-yellow-400/60 text-yellow-400 text-sm font-bold hover:bg-yellow-400 hover:text-zinc-950 transition-all duration-200"
-            >
-              Entrar
-            </button>
-
-            <button
-              onClick={() => setMenuOpen(v => !v)}
-              className="md:hidden p-2 text-zinc-400 hover:text-white transition-colors"
-            >
-              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
+      {/* ── TOP BAR ── */}
+      <div className="bg-[#0a0a0e] border-b border-white/5 px-8 py-1.5 hidden md:flex justify-between items-center text-[11px] text-zinc-500">
+        <span>Kinoplex — Assista 1 mês <span className="text-orange-400 font-semibold">Grátis</span></span>
+        <div className="flex items-center gap-6">
+          <span>Sobre nós</span>
+          <span>FAQ</span>
+          <div className="flex gap-3">
+            {['f','t','i','y'].map(s => (
+              <span key={s} className="w-5 h-5 rounded-full bg-zinc-800 flex items-center justify-center text-[9px] font-bold uppercase cursor-pointer hover:bg-orange-500 transition-colors">{s}</span>
+            ))}
           </div>
         </div>
+      </div>
 
-        <AnimatePresence>
-          {menuOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="md:hidden overflow-hidden border-t border-zinc-800 bg-zinc-950"
+      {/* ── NAVBAR ── */}
+      <nav className="sticky top-0 z-50 bg-[#0f0f13]/95 backdrop-blur-md border-b border-white/5 px-8 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-8">
+          {/* Logo */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="w-9 h-9 bg-orange-500 rounded-full flex items-center justify-center shadow-lg shadow-orange-500/30">
+              <Film className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-xl font-black tracking-widest text-white uppercase">Kinoplex</span>
+          </div>
+
+          {/* Nav links */}
+          <div className="hidden md:flex items-center gap-7">
+            {navLinks.map(link => (
+              <button
+                key={link.label}
+                className={`text-sm font-semibold tracking-wide transition-colors relative pb-0.5 ${
+                  link.active
+                    ? 'text-orange-400'
+                    : 'text-zinc-400 hover:text-zinc-100'
+                }`}
+              >
+                {link.label}
+                {link.active && <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-orange-400 rounded-full"></span>}
+              </button>
+            ))}
+          </div>
+
+          {/* Right side */}
+          <div className="flex items-center gap-4 shrink-0">
+            <div className="relative hidden md:block">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Buscar filme..."
+                className="bg-zinc-800/60 border border-white/5 rounded-full pl-9 pr-4 py-2 text-sm text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-orange-500/50 w-44 transition-all focus:w-56"
+              />
+            </div>
+            <div
+              onClick={() => !user && navigate('/login')}
+              className="flex items-center gap-2 border border-orange-500 text-orange-400 hover:bg-orange-500 hover:text-white px-5 py-2 rounded-full text-sm font-bold tracking-wide cursor-pointer transition-all"
             >
-              <div className="px-6 py-5 flex flex-col gap-5 text-sm font-medium">
-                <a href="#inicio" className="text-yellow-400 font-bold">Início</a>
-                <a href="#filmes" className="text-zinc-400">Filmes</a>
-                <a href="#filmes" className="text-zinc-400">Programação</a>
-                <button onClick={() => navigate('/login')} className="text-left text-yellow-400 font-bold">
-                  Entrar →
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <User className="w-4 h-4" />
+              {user ? user.nome : 'Entrar'}
+            </div>
+          </div>
+        </div>
       </nav>
 
       {/* ── HERO ── */}
-      <section id="inicio" className="pt-16">
-        {loading ? (
-          <div className="min-h-[85vh] flex items-center justify-center">
-            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}>
-              <Film className="w-10 h-10 text-yellow-400" />
-            </motion.div>
-          </div>
-        ) : featured ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8 }}
-            className="relative min-h-[85vh] flex items-center overflow-hidden"
-          >
-            <div className={`absolute inset-0 bg-gradient-to-br ${posterGradients[0]} opacity-50`} />
-            <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950/80 to-zinc-950/30" />
-            <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent" />
+      <section className="relative w-full min-h-[85vh] flex items-center overflow-hidden">
+        {/* BG */}
+        <div className="absolute inset-0 z-0">
+          <img src={heroBg} alt="Hero background" className="w-full h-full object-cover opacity-20" loading="lazy" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0f0f13] via-[#0f0f13]/80 to-[#0f0f13]/30"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f13] via-transparent to-transparent"></div>
+        </div>
 
-            <div className="relative z-10 max-w-7xl mx-auto px-6 py-20 w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-
-              <motion.div
-                initial={{ x: -50, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ duration: 0.7, delay: 0.2 }}
-              >
-                <p className="text-yellow-400 text-xs font-black tracking-[0.3em] uppercase mb-4 flex items-center gap-2">
-                  <span className="w-6 h-px bg-yellow-400 inline-block" />
-                  Em Destaque
-                </p>
-
-                <h1 className="text-5xl xl:text-7xl font-black text-white leading-none tracking-tight mb-5">
-                  {featured.titulo}
-                </h1>
-
-                <div className="flex flex-wrap items-center gap-3 mb-6">
-                  <span className="bg-yellow-400 text-zinc-950 text-[11px] font-black px-2.5 py-1 rounded-md">HD</span>
-                  <span className="text-zinc-400 text-sm font-medium flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5" /> Cinema
-                  </span>
-                  <span className="text-zinc-700">•</span>
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map(i => (
-                      <Star key={i} className={`w-3.5 h-3.5 ${i <= 4 ? 'text-yellow-400 fill-yellow-400' : 'text-zinc-700'}`} />
-                    ))}
-                    <span className="text-zinc-400 text-xs ml-1">4.8</span>
-                  </div>
-                </div>
-
-                <p className="text-zinc-300 text-base leading-relaxed mb-10 max-w-lg line-clamp-4">
-                  {featured.sinopse}
-                </p>
-
-                <div className="mb-3 flex items-center gap-2">
-                  <Ticket className="w-4 h-4 text-yellow-400" />
-                  <span className="text-[11px] font-black text-zinc-500 uppercase tracking-widest">
-                    Escolha sua sessão
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap gap-3">
-                  {featured.sessoes.slice(0, 4).map(s => (
-                    <motion.button
-                      key={s.id}
-                      whileHover={{ scale: 1.04 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => navigate(`/sessao/${s.id}`)}
-                      className="flex items-center gap-2 px-5 py-3 bg-yellow-400 text-zinc-950 rounded-xl text-sm font-black hover:bg-yellow-300 transition-colors duration-200 shadow-lg shadow-yellow-400/25"
-                    >
-                      <Clock className="w-4 h-4" />
-                      {s.horario}
-                      <span className="text-[10px] opacity-60 bg-zinc-950/20 px-1.5 py-0.5 rounded">{s.sala}</span>
-                    </motion.button>
-                  ))}
-                  {featured.sessoes.length === 0 && (
-                    <p className="text-zinc-600 text-sm italic">Sem sessões disponíveis.</p>
-                  )}
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ x: 50, opacity: 0, scale: 0.95 }}
-                animate={{ x: 0, opacity: 1, scale: 1 }}
-                transition={{ duration: 0.7, delay: 0.3 }}
-                className="hidden lg:flex justify-center"
-              >
-                <div className={`w-64 xl:w-72 aspect-[2/3] rounded-2xl bg-gradient-to-br ${posterGradients[0]} border border-yellow-400/20 shadow-2xl shadow-yellow-400/10 relative overflow-hidden flex items-center justify-center`}>
-                  <Film className="absolute w-28 h-28 text-white/5" />
-                  <p className="relative z-10 text-3xl font-black text-white/8 uppercase tracking-widest text-center px-4 rotate-[-8deg] select-none">
-                    {featured.titulo}
-                  </p>
-                  <div className="absolute bottom-0 left-0 right-0 h-2/5 bg-gradient-to-t from-zinc-950/90 to-transparent" />
-                  <div className="absolute bottom-4 left-0 right-0 px-5 text-center">
-                    <p className="text-yellow-400 text-[10px] font-black tracking-[0.25em] uppercase">Em Cartaz</p>
-                    <p className="text-white text-sm font-bold mt-1 line-clamp-1">{featured.titulo}</p>
-                  </div>
-                  <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-400 to-transparent" />
-                </div>
-              </motion.div>
+        <div className="relative z-10 max-w-7xl mx-auto px-8 w-full grid grid-cols-1 md:grid-cols-2 gap-12 items-center py-20">
+          {/* Text side */}
+          {loading ? (
+            <div className="animate-pulse space-y-4">
+              <div className="h-4 w-24 bg-zinc-800 rounded"></div>
+              <div className="h-16 w-3/4 bg-zinc-800 rounded-xl"></div>
+              <div className="h-24 w-full bg-zinc-800 rounded-xl"></div>
             </div>
-          </motion.div>
-        ) : (
-          <div className="min-h-[40vh] flex items-center justify-center text-zinc-600">
-            Nenhum filme disponível.
-          </div>
-        )}
+          ) : featuredMovie && (
+            <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8 }}>
+              <p className="text-orange-400 text-sm font-black uppercase tracking-[0.2em] mb-3">Kinoplex</p>
+              <h1 className="text-4xl md:text-6xl font-black text-white leading-tight mb-4">
+                Filmes <span className="text-orange-400">{featuredMovie.titulo}</span>, Séries <br />e muito mais.
+              </h1>
+
+              {/* Meta badges */}
+              <div className="flex items-center gap-3 mb-6">
+                <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded">PG</span>
+                <span className="bg-zinc-700 text-zinc-200 text-[10px] font-black px-2 py-0.5 rounded">4K</span>
+                <span className="text-zinc-400 text-xs">{featuredMovie.genero || 'Ação, Drama'}</span>
+                <span className="text-zinc-600 text-xs">•</span>
+                <span className="text-zinc-400 text-xs flex items-center gap-1"><Clock className="w-3 h-3" />{featuredMovie.duracao || '128 min'}</span>
+              </div>
+
+              <p className="text-zinc-400 text-base leading-relaxed max-w-lg mb-8 line-clamp-3">{featuredMovie.sinopse}</p>
+
+              <div className="flex items-center gap-4">
+                <button className="flex items-center gap-2 bg-orange-500 hover:bg-orange-400 text-white px-6 py-3 rounded-lg font-bold text-sm tracking-wide transition-all shadow-lg shadow-orange-500/25 hover:-translate-y-0.5">
+                  <Play className="w-4 h-4 fill-white" />
+                  Assistir Agora
+                </button>
+                {featuredMovie.sessoes?.length > 0 && (
+                  <button
+                    onClick={() => navigate(`/sessao/${featuredMovie.sessoes[0].id}`)}
+                    className="flex items-center gap-2 border border-zinc-700 hover:border-orange-500/50 text-zinc-300 hover:text-white px-6 py-3 rounded-lg font-bold text-sm tracking-wide transition-all hover:-translate-y-0.5"
+                  >
+                    <Ticket className="w-4 h-4" />
+                    Comprar Ingresso
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Poster side */}
+          {!loading && featuredMovie && (
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+              className="hidden md:flex justify-center"
+            >
+              <div className="relative">
+                <div className="w-72 h-96 rounded-2xl overflow-hidden border-2 border-orange-500/40 shadow-2xl shadow-orange-500/10">
+                  <img
+                    src={getBackdrop(featuredMovie.id)}
+                    alt={featuredMovie.titulo}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+                {/* Floating badge */}
+                <div className="absolute -bottom-4 -left-6 bg-[#1a1a22] border border-white/10 rounded-xl px-4 py-3 shadow-xl">
+                  <div className="flex items-center gap-2">
+                    <Star className="w-4 h-4 text-orange-400 fill-orange-400" />
+                    <span className="text-white font-black text-sm">8.4</span>
+                    <span className="text-zinc-500 text-xs">/ 10</span>
+                  </div>
+                  <p className="text-zinc-400 text-[10px] mt-0.5">Avaliação dos usuários</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </div>
       </section>
 
       {/* ── FILMES EM CARTAZ ── */}
-      <section id="filmes" className="max-w-7xl mx-auto px-6 py-20">
-
-        <div className="flex items-end justify-between mb-10">
+      <section className="max-w-7xl mx-auto px-8 py-16">
+        {/* Section header */}
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <p className="text-yellow-400 text-[11px] font-black tracking-[0.3em] uppercase mb-2 flex items-center gap-2">
-              <span className="w-4 h-px bg-yellow-400 inline-block" />
-              Programação
-            </p>
-            <h2 className="text-3xl font-extrabold text-white">Filmes em Cartaz</h2>
+            <p className="text-orange-400 text-[10px] font-black uppercase tracking-[0.25em] mb-1">Online Streaming</p>
+            <h2 className="text-2xl font-black text-white">Filmes em Cartaz</h2>
+            <div className="w-10 h-0.5 bg-orange-500 mt-2 rounded-full"></div>
           </div>
-          <button className="hidden md:flex items-center gap-1 text-sm text-zinc-500 hover:text-yellow-400 transition-colors font-medium">
-            Ver todos <ChevronRight className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-3">
+            {filters.map(f => (
+              <button
+                key={f}
+                onClick={() => setActiveFilter(f)}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold tracking-wide transition-all ${
+                  activeFilter === f
+                    ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                    : 'bg-zinc-800/60 text-zinc-400 border border-white/5 hover:bg-zinc-700 hover:text-zinc-200'
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+            <button className="w-7 h-7 rounded-full bg-zinc-800/60 border border-white/5 flex items-center justify-center hover:bg-zinc-700 transition-colors">
+              <ChevronLeft className="w-4 h-4 text-zinc-400" />
+            </button>
+            <button className="w-7 h-7 rounded-full bg-zinc-800/60 border border-white/5 flex items-center justify-center hover:bg-zinc-700 transition-colors">
+              <ChevronRight className="w-4 h-4 text-zinc-400" />
+            </button>
+          </div>
         </div>
 
+        {/* Movie cards row */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="rounded-2xl bg-zinc-900/50 border border-zinc-800/50 h-96 animate-pulse" />
+          <div className="flex gap-5 overflow-x-auto pb-4">
+            {[1,2,3,4,5].map(i => (
+              <div key={i} className="shrink-0 w-44 h-64 bg-zinc-900/50 rounded-xl animate-pulse"></div>
             ))}
-          </div>
-        ) : listaFilmes.length === 0 ? (
-          <div className="text-center py-20 text-zinc-600">
-            {searchQuery ? `Nenhum filme encontrado para "${searchQuery}".` : 'Nenhum filme disponível.'}
           </div>
         ) : (
           <motion.div
             initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-80px' }}
-            variants={{
-              hidden: { opacity: 0 },
-              visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
-            }}
-            className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8"
+            animate="visible"
+            variants={{ hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.08 } } }}
+            className="flex gap-5 overflow-x-auto pb-4 scrollbar-hide"
           >
-            {listaFilmes.map((filme, idx) => {
-              const gradient = posterGradients[idx % posterGradients.length];
-              const rating = mockRatings[idx % mockRatings.length];
-              return (
-                <motion.div
-                  key={filme.id}
-                  variants={{
-                    hidden: { opacity: 0, y: 28 },
-                    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
-                  }}
-                  className="group bg-zinc-900 border border-zinc-800/80 rounded-2xl overflow-hidden hover:border-yellow-400/30 hover:shadow-2xl hover:shadow-yellow-400/5 transition-all duration-300 flex flex-col"
-                >
-                  <div className={`h-52 bg-gradient-to-br ${gradient} relative flex items-center justify-center overflow-hidden`}>
-                    <Film className="absolute w-20 h-20 text-white/5 group-hover:scale-110 group-hover:text-white/8 transition-all duration-500" />
-                    <p className="text-white/5 text-3xl font-black uppercase tracking-widest text-center px-4 rotate-[-5deg] select-none group-hover:rotate-0 transition-transform duration-500">
-                      {filme.titulo}
-                    </p>
-                    <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-zinc-900 to-transparent" />
-
-                    <div className="absolute top-3 right-3 flex items-center gap-1 bg-zinc-950/70 backdrop-blur-sm px-2.5 py-1.5 rounded-xl">
-                      <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                      <span className="text-xs font-black text-yellow-400">{rating.toFixed(1)}</span>
-                    </div>
-
-                    <div className="absolute top-3 left-3 bg-yellow-400 text-zinc-950 text-[10px] font-black px-2 py-0.5 rounded-md">
-                      HD
-                    </div>
+            {filmes.map((filme) => (
+              <motion.div
+                key={filme.id}
+                variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+                className="shrink-0 w-44 group cursor-pointer"
+              >
+                {/* Poster */}
+                <div className="relative w-44 h-64 rounded-xl overflow-hidden mb-3 shadow-lg">
+                  <img
+                    src={getPoster(filme.id)}
+                    alt={filme.titulo}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
+                    {filme.sessoes?.length > 0 && (
+                      <button
+                        onClick={() => navigate(`/sessao/${filme.sessoes[0].id}`)}
+                        className="w-full bg-orange-500 hover:bg-orange-400 text-white text-[10px] font-black uppercase tracking-widest py-2 rounded-lg transition-colors"
+                      >
+                        Ver Sessões
+                      </button>
+                    )}
                   </div>
-
-                  <div className="p-6 flex flex-col flex-1">
-                    <h3 className="text-lg font-extrabold text-white mb-2 group-hover:text-yellow-400 transition-colors duration-300 line-clamp-1">
-                      {filme.titulo}
-                    </h3>
-                    <p className="text-zinc-400 text-sm leading-relaxed mb-5 line-clamp-2 flex-1">
-                      {filme.sinopse}
-                    </p>
-
-                    <div className="mt-auto">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Ticket className="w-3.5 h-3.5 text-yellow-400" />
-                        <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">
-                          Sessões disponíveis
-                        </span>
-                      </div>
-
-                      {filme.sessoes.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {filme.sessoes.map(s => (
-                            <button
-                              key={s.id}
-                              onClick={() => navigate(`/sessao/${s.id}`)}
-                              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-800 hover:bg-yellow-400 text-zinc-300 hover:text-zinc-950 text-xs font-bold transition-all duration-200 border border-zinc-700/50 hover:border-yellow-400"
-                            >
-                              <Clock className="w-3 h-3" />
-                              {s.horario}
-                              <span className="opacity-50 text-[9px]">{s.sala}</span>
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-zinc-700 text-xs italic bg-zinc-800/50 px-3 py-2 rounded-xl border border-zinc-800">
-                          Sem sessões disponíveis.
-                        </p>
-                      )}
-                    </div>
+                  {/* Rating badge */}
+                  <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm rounded-md px-1.5 py-0.5 flex items-center gap-1">
+                    <Star className="w-3 h-3 text-orange-400 fill-orange-400" />
+                    <span className="text-white text-[10px] font-black">8.{(filme.id % 9) + 1}</span>
                   </div>
-                </motion.div>
-              );
-            })}
+                </div>
+
+                {/* Info */}
+                <h3 className="text-white text-sm font-bold truncate mb-1">{filme.titulo}</h3>
+                <p className="text-zinc-500 text-xs font-medium">{filme.genero || 'Aventura'}</p>
+
+                {/* Meta row */}
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="bg-zinc-800 text-zinc-400 text-[9px] font-black px-1.5 py-0.5 rounded">4K</span>
+                  <span className="text-zinc-600 text-[10px]">Português</span>
+                  <span className="ml-auto text-orange-400 text-[10px] font-black flex items-center gap-0.5">
+                    <Star className="w-2.5 h-2.5 fill-orange-400" />
+                    {(3 + (filme.id % 3)).toFixed(1)}
+                  </span>
+                </div>
+              </motion.div>
+            ))}
           </motion.div>
         )}
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer className="border-t border-zinc-800/60 mt-8">
-        <div className="max-w-7xl mx-auto px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-zinc-600">
-          <div className="flex items-center gap-2 font-bold text-zinc-500">
-            <Film className="w-4 h-4 text-yellow-400/60" />
-            Kino<span className="text-yellow-400/60">plex</span>
+      {/* ── EM BREVE ── */}
+      <section className="max-w-7xl mx-auto px-8 pb-16">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <p className="text-orange-400 text-[10px] font-black uppercase tracking-[0.25em] mb-1">Online Streaming</p>
+            <h2 className="text-2xl font-black text-white">Em Breve</h2>
+            <div className="w-10 h-0.5 bg-orange-500 mt-2 rounded-full"></div>
           </div>
-          <p>© {new Date().getFullYear()} Kinoplekis. Projeto pessoal.</p>
+          <div className="flex items-center gap-3">
+            {['Séries', 'Filmes', 'Anime'].map(f => (
+              <button key={f} className="px-4 py-1.5 rounded-full text-xs font-bold tracking-wide bg-zinc-800/60 text-zinc-400 border border-white/5 hover:bg-zinc-700 hover:text-zinc-200 transition-all">
+                {f}
+              </button>
+            ))}
+            <button className="w-7 h-7 rounded-full bg-zinc-800/60 border border-white/5 flex items-center justify-center hover:bg-zinc-700 transition-colors">
+              <ChevronLeft className="w-4 h-4 text-zinc-400" />
+            </button>
+            <button className="w-7 h-7 rounded-full bg-zinc-800/60 border border-white/5 flex items-center justify-center hover:bg-zinc-700 transition-colors">
+              <ChevronRight className="w-4 h-4 text-zinc-400" />
+            </button>
+          </div>
         </div>
-      </footer>
+
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="h-48 bg-zinc-900/50 rounded-xl animate-pulse"></div>
+            ))}
+          </div>
+        ) : (
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={{ hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } }}
+            className="grid grid-cols-2 md:grid-cols-4 gap-5"
+          >
+            {filmes.slice(0, 4).map((filme) => (
+              <motion.div
+                key={filme.id}
+                variants={{ hidden: { opacity: 0, scale: 0.96 }, visible: { opacity: 1, scale: 1 } }}
+                className="relative rounded-xl overflow-hidden group cursor-pointer shadow-lg"
+                style={{ aspectRatio: '3/2' }}
+                onClick={() => filme.sessoes?.length > 0 && navigate(`/sessao/${filme.sessoes[0].id}`)}
+              >
+                <img
+                  src={getBackdrop(filme.id + 5)}
+                  alt={filme.titulo}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent"></div>
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <h3 className="text-white text-sm font-black truncate mb-1">{filme.titulo}</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-zinc-800/80 text-zinc-300 text-[9px] font-bold px-1.5 py-0.5 rounded">4K</span>
+                    <span className="text-zinc-400 text-[10px] flex items-center gap-1"><Clock className="w-3 h-3" />{filme.duracao || '128 min'}</span>
+                    <span className="ml-auto text-orange-400 text-[10px] font-black flex items-center gap-0.5">
+                      <Star className="w-2.5 h-2.5 fill-orange-400" />
+                      {(3.0 + (filme.id % 30) / 10).toFixed(1)}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </section>
+
+      {/* ── BANNER PROMO ── */}
+      <section className="max-w-7xl mx-auto px-8 pb-20">
+        <div className="bg-[#1a1a22] border border-white/5 rounded-2xl p-8 flex flex-col md:flex-row items-center gap-8 overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-orange-500/5 to-transparent pointer-events-none"></div>
+          {/* Icon card */}
+          <div className="shrink-0 w-36 h-44 bg-zinc-900 border border-orange-500/30 rounded-xl flex flex-col items-center justify-center gap-3 shadow-xl shadow-orange-500/10 relative z-10">
+            <div className="w-14 h-14 bg-orange-500/10 rounded-full flex items-center justify-center">
+              <Tv className="w-7 h-7 text-orange-400" />
+            </div>
+            <p className="text-white text-xs font-black text-center px-2">Apenas R$ 9,99 / mês</p>
+            <span className="bg-orange-500 text-white text-[10px] font-black px-3 py-1 rounded-full">4K HD</span>
+          </div>
+          <div className="relative z-10">
+            <p className="text-orange-400 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Nossos Serviços</p>
+            <h3 className="text-2xl md:text-3xl font-black text-white mb-4">Baixe seus filmes e <br />assista offline.</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                { icon: <Tv className="w-5 h-5 text-orange-400" />, title: 'Na sua TV', desc: 'Assista em qualquer smart TV, Apple TV, Chromecast e mais.' },
+                { icon: <Play className="w-5 h-5 text-orange-400" />, title: 'Em qualquer lugar', desc: 'Assista no celular, tablet, notebook ou computador.' },
+              ].map(item => (
+                <div key={item.title} className="flex items-start gap-3">
+                  <div className="w-9 h-9 bg-zinc-800 rounded-lg flex items-center justify-center shrink-0">{item.icon}</div>
+                  <div>
+                    <p className="text-white text-sm font-bold mb-1">{item.title}</p>
+                    <p className="text-zinc-500 text-xs leading-relaxed">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
     </div>
   );

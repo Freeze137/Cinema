@@ -1,192 +1,131 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import api from '../services/api';
-import { Armchair, CheckCircle, Info, ArrowLeft } from 'lucide-react';
-import { motion } from 'framer-motion';
-
-interface SessaoData {
-  filme: { titulo: string; duracao: string; avaliacao: string; genero: string; sinopse: string };
-  detalhes: { cinema: string; sala: string; horario: string; preco_ingresso: number };
-  assentos_ocupados: string[];
-}
+import { api } from '../services/api';
+import { ChevronLeft, Armchair } from 'lucide-react';
 
 export function SeatSelection() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams();
   const navigate = useNavigate();
-  const [session, setSession] = useState<SessaoData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
-  const [occupiedSeats, setOccupiedSeats] = useState<string[]>([]);
+  const [data, setData] = useState<any>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+
+  useEffect(() => {
+    api.get(`/api/sessao/${id}`).then(res => setData(res.data));
+  }, [id]);
 
   const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
   const cols = Array.from({ length: 12 }, (_, i) => i + 1);
 
-  useEffect(() => {
-    // 1. Busca os dados da Sessão
-    api.get(`/api/sessao/${id}`).then((response) => {
-      setSession(response.data);
-      setOccupiedSeats(response.data.assentos_ocupados);
-      setLoading(false);
-    }).catch(err => {
-      console.error(err);
-      setLoading(false);
-    });
-
-    // 2. Conecta ao WebSocket para atualizações em tempo real
-    const ws = new WebSocket(`ws://127.0.0.1:8000/ws/sessao/${id}`);
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.event === "seats_updated") {
-        setOccupiedSeats((prev) => [...new Set([...prev, ...data.assentos_novos])]);
-        // Remove da seleção local se o assento recém-ocupado estava selecionado
-        setSelectedSeats((prev) => prev.filter(seat => !data.assentos_novos.includes(seat)));
-      }
-    };
-    return () => ws.close();
-  }, [id]);
-
-  const toggleSeat = (codigo: string) => {
-    if (occupiedSeats.includes(codigo)) return;
-    setSelectedSeats(prev => 
-      prev.includes(codigo) ? prev.filter(s => s !== codigo) : [...prev, codigo]
-    );
-  };
-
-  const handleCheckout = async () => {
-    if (selectedSeats.length === 0) return;
+  async function handleReserve() {
     try {
-      await api.post('/api/reservas', { sessao_id: Number(id), assentos: selectedSeats });
-      alert('Reserva concluída com sucesso!');
-      navigate('/'); // Ou navegue para /minhas-reservas
-    } catch (error) {
-      alert('Erro ao confirmar reserva. Tente novamente.');
+      await api.post('/api/reservas', { sessao_id: Number(id), assentos: selected });
+      alert("Reserva confirmada com sucesso!");
+      navigate('/');
+    } catch { 
+      alert("Erro ao processar a reserva."); 
     }
-  };
-
-  if (loading || !session) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex justify-center items-center">
-        <div className="animate-spin text-red-600"><Armchair size={48} /></div>
-      </div>
-    );
   }
 
-  const totalValue = selectedSeats.length * session.detalhes.preco_ingresso;
+  if (!data) return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center text-red-600 font-black italic text-2xl uppercase tracking-tighter">A carregar sala...</div>;
+
+  const precoTotal = selected.length * data.detalhes.preco_ingresso;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 pb-20 font-sans selection:bg-red-500/30">
-      {/* HEADER */}
-      <motion.div 
-        initial={{ y: -50, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="bg-zinc-900/80 backdrop-blur-xl border-b border-zinc-800 p-6 sticky top-0 z-50 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl"
-      >
-        <div className="w-full max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center">
-          <div>
-            <button onClick={() => navigate(-1)} className="text-zinc-400 hover:text-red-500 mb-3 flex items-center gap-2 text-sm font-bold tracking-wide transition-colors duration-300">
-              <ArrowLeft size={16} /> Voltar para cartaz
-            </button>
-            <h1 className="text-4xl font-extrabold text-white leading-tight tracking-tight">{session.filme.titulo}</h1>
-            <p className="text-zinc-400 mt-2 font-medium tracking-wide flex items-center gap-3">
-              <span className="bg-zinc-800 text-zinc-300 px-3 py-1 rounded-full text-xs">{session.detalhes.cinema}</span>
-              <span className="bg-zinc-800 text-zinc-300 px-3 py-1 rounded-full text-xs">Sala {session.detalhes.sala}</span>
-              <span className="bg-red-600/20 text-red-500 border border-red-500/30 px-3 py-1 rounded-full text-xs font-bold">{session.detalhes.horario}</span>
-            </p>
+    <div className="min-h-screen bg-[#0a0a0a] text-zinc-100 pb-32 font-sans selection:bg-red-600/30">
+      
+      {/* HEADER DA SALA */}
+      <header className="sticky top-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/5 p-6">
+        <div className="max-w-5xl mx-auto flex justify-between items-center">
+          <button onClick={() => navigate('/')} className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors font-bold text-sm uppercase tracking-widest">
+            <ChevronLeft className="w-5 h-5" /> Voltar
+          </button>
+          <div className="text-center">
+            <h1 className="text-xl font-black italic uppercase tracking-tighter">{data.filme.titulo}</h1>
+            <p className="text-red-500 text-[10px] font-black uppercase tracking-widest mt-1">SALA {data.detalhes.sala} • {data.detalhes.horario}</p>
           </div>
+          <div className="w-20" /> {/* Espaçador para centralizar o título */}
         </div>
-      </motion.div>
+      </header>
 
-      {/* MAIN CONTENT */}
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6, delay: 0.2 }}
-        className="max-w-5xl mx-auto mt-12 p-4 grid grid-cols-1 lg:grid-cols-3 gap-16"
-      >
-        {/* SEAT MAP */}
-        <div className="col-span-2 flex flex-col items-center">
-          {/* TELA DO CINEMA PREMIUM */}
-          <div className="w-full max-w-2xl h-24 relative flex items-end justify-center mb-24 mt-4 perspective-[1000px]">
-            <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent rounded-[100%] border-t-[4px] border-white/40 shadow-[0_-15px_60px_rgba(255,255,255,0.15)] filter drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]"></div>
-            <div className="absolute inset-0 bg-gradient-to-b from-red-500/5 to-transparent rounded-[100%]"></div>
-            <span className="text-zinc-500 text-[10px] font-black tracking-[0.6em] uppercase absolute -bottom-8">Tela do Cinema</span>
-          </div>
+      <main className="max-w-4xl mx-auto px-6 mt-12">
+        
+        {/* TELA DE CINEMA (EFEITO CURVO E NEON) */}
+        <div className="relative mb-24 px-12">
+          <div className="w-full h-1.5 bg-red-600 rounded-full shadow-[0_0_40px_rgba(220,38,38,0.6)]" />
+          <div className="absolute top-0 left-12 right-12 h-16 bg-gradient-to-b from-red-600/20 to-transparent blur-xl" />
+          <p className="text-[10px] text-zinc-600 font-black text-center mt-6 tracking-[1em] uppercase">Ecrã de Projeção</p>
+        </div>
+        
+        {/* MAPA DE ASSENTOS */}
+        <div className="grid gap-6 justify-center">
+          {rows.map(row => (
+            <div key={row} className="flex gap-4 items-center">
+              <span className="w-6 text-center text-zinc-600 font-black text-xs">{row}</span>
+              <div className="flex gap-2 sm:gap-3">
+                {cols.map(col => {
+                  const code = `${row}${col}`;
+                  const isOccupied = data.assentos_ocupados.includes(code);
+                  const isSelected = selected.includes(code);
 
-          <div className="flex flex-col gap-3">
-            {rows.map((row) => (
-              <div key={row} className="flex gap-2 lg:gap-4 justify-center items-center group/row">
-                <span className="w-6 text-center font-bold text-zinc-600 text-sm mr-4">{row}</span>
-                {cols.map((col) => {
-                  const seatCode = `${row}${col}`;
-                  const isOccupied = occupiedSeats.includes(seatCode);
-                  const isSelected = selectedSeats.includes(seatCode);
-                  
                   return (
                     <button
-                      key={seatCode}
+                      key={code}
                       disabled={isOccupied}
-                      onClick={() => toggleSeat(seatCode)}
-                      className="relative flex flex-col items-center justify-center transition-all duration-300 hover:-translate-y-2 hover:scale-110 outline-none focus:ring-2 focus:ring-red-500/50 rounded-xl"
+                      onClick={() => setSelected(s => s.includes(code) ? s.filter(x => x !== code) : [...s, code])}
+                      className={`relative w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300 ${
+                        isOccupied ? 'bg-zinc-900 border border-white/5 text-zinc-800 cursor-not-allowed' :
+                        isSelected ? 'bg-red-600 text-white scale-110 shadow-lg shadow-red-600/40 -translate-y-1' : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700 hover:-translate-y-1'
+                      }`}
                     >
-                      <Armchair 
-                        strokeWidth={isSelected ? 2.5 : 1.5}
-                        className={`w-8 h-8 lg:w-[42px] lg:h-[42px] transition-all duration-300 ${
-                          isOccupied ? 'text-purple-950 drop-shadow-[0_0_2px_rgba(88,28,135,0.3)] cursor-not-allowed opacity-50' 
-                          : isSelected ? 'text-red-500 drop-shadow-[0_0_12px_rgba(220,38,38,0.8)] fill-red-500/20 scale-110 -translate-y-1' 
-                          : 'text-zinc-700 hover:text-zinc-300 drop-shadow-md hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.2)]'
-                        }`} 
-                      />
-                      <span className={`text-[9px] font-black absolute bottom-[-14px] transition-colors duration-300 ${
-                        isSelected ? 'text-red-400' : isOccupied ? 'text-transparent' : 'text-zinc-600 group-hover/row:text-zinc-400'
-                      }`}>{col}</span>
+                      <Armchair className="w-4 h-4 sm:w-5 sm:h-5" />
+                      {/* Mostrar o número apenas se estiver selecionado */}
+                      {isSelected && <span className="absolute -top-2 -right-2 bg-white text-black text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center">{col}</span>}
                     </button>
                   );
                 })}
-                <span className="w-6 text-center font-bold text-zinc-600 text-sm ml-4">{row}</span>
               </div>
-            ))}
-          </div>
-
-          {/* LEGENDA */}
-          <div className="flex justify-center gap-10 mt-20 text-sm font-medium text-zinc-400 bg-zinc-900/60 backdrop-blur-md py-4 px-10 rounded-2xl border border-zinc-800/80 shadow-xl">
-            <div className="flex items-center gap-3"><Armchair className="w-5 h-5 text-zinc-700" /> Disponível</div>
-            <div className="flex items-center gap-3"><Armchair className="w-5 h-5 text-red-500 drop-shadow-[0_0_8px_rgba(220,38,38,0.8)] fill-red-500/20" /> Selecionado</div>
-            <div className="flex items-center gap-3"><Armchair className="w-5 h-5 text-purple-950 opacity-50" /> Ocupado</div>
-          </div>
+              <span className="w-6 text-center text-zinc-600 font-black text-xs">{row}</span>
+            </div>
+          ))}
         </div>
 
-        {/* SUMMARY / CHECKOUT */}
-        <div className="bg-zinc-900/80 backdrop-blur-xl p-8 rounded-3xl border border-zinc-800/80 h-fit sticky top-32 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col transition-all duration-300 hover:border-zinc-700">
-          <h3 className="text-2xl font-extrabold text-white mb-8 flex items-center gap-3"><Info className="text-red-500 w-6 h-6" /> Seu Ingresso</h3>
-          
-          <div className="flex-1 min-h-[120px]">
-            {selectedSeats.length === 0 ? (
-              <p className="text-zinc-500 text-center font-medium italic mt-10 text-sm">Selecione suas poltronas no mapa ao lado.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {selectedSeats.map(s => (
-                  <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} key={s} className="bg-gradient-to-br from-zinc-800 to-zinc-900 px-4 py-2 rounded-xl text-red-400 font-black border border-zinc-700 shadow-inner tracking-wider">{s}</motion.span>
+        {/* LEGENDA */}
+        <div className="flex justify-center gap-6 sm:gap-12 mt-16 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+          <div className="flex items-center gap-2"><div className="w-4 h-4 bg-zinc-800 rounded-md" /> Disponível</div>
+          <div className="flex items-center gap-2"><div className="w-4 h-4 bg-red-600 shadow-lg shadow-red-600/40 rounded-md" /> Selecionado</div>
+          <div className="flex items-center gap-2"><div className="w-4 h-4 bg-zinc-900 border border-white/5 rounded-md" /> Ocupado</div>
+        </div>
+
+      </main>
+
+      {/* BARRA FIXA DE CHECKOUT (FICA PRESA NO FUNDO DO ECRÃ) */}
+      {selected.length > 0 && (
+        <div className="fixed bottom-0 left-0 w-full bg-[#0a0a0a]/90 backdrop-blur-lg border-t border-white/10 p-6 z-50 animate-[slideUp_0.3s_ease-out]">
+          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6">
+            <div>
+              <p className="text-zinc-400 text-[10px] font-black uppercase tracking-widest mb-1">{selected.length} LUGARES SELECIONADOS</p>
+              <div className="flex gap-2">
+                {selected.map(seat => (
+                  <span key={seat} className="bg-zinc-800 text-white px-2 py-1 rounded text-xs font-bold">{seat}</span>
                 ))}
               </div>
-            )}
-          </div>
-          
-          <div className="border-t border-zinc-800 pt-6 mt-6">
-            <div className="flex justify-between text-zinc-400 mb-3 font-medium text-sm"><span>Ingressos selecionados</span> <span className="text-white font-bold">{selectedSeats.length}x</span></div>
-            <div className="flex justify-between items-end mb-8">
-              <span className="text-zinc-500 font-medium">Total a pagar</span> 
-              <span className="text-4xl font-black text-red-500 drop-shadow-[0_0_10px_rgba(220,38,38,0.2)]">R$ {totalValue.toFixed(2)}</span>
             </div>
             
-            <button onClick={handleCheckout} disabled={selectedSeats.length === 0} className="w-full relative group/btn disabled:opacity-50 disabled:cursor-not-allowed">
-              <div className="absolute inset-0 bg-red-600 rounded-2xl blur group-hover/btn:blur-md transition-all duration-300 opacity-70 group-disabled/btn:hidden"></div>
-              <div className="relative bg-red-600 group-hover/btn:bg-red-500 text-white font-black text-lg py-5 rounded-2xl transition-all duration-300 flex justify-center items-center gap-2 uppercase tracking-wide border border-red-400/50">
-                Finalizar Compra
+            <div className="flex items-center gap-6">
+              <div className="text-right">
+                <p className="text-zinc-500 text-[10px] font-black uppercase tracking-widest">Total a pagar</p>
+                <p className="text-2xl font-black text-white italic tracking-tighter">R$ {precoTotal.toFixed(2)}</p>
               </div>
-            </button>
+              <button 
+                onClick={handleReserve}
+                className="bg-red-600 text-white px-8 py-4 rounded-xl font-black uppercase tracking-tighter hover:bg-red-700 hover:scale-105 transition-all shadow-lg shadow-red-600/30"
+              >
+                FINALIZAR COMPRA
+              </button>
+            </div>
           </div>
         </div>
-      </motion.div>
+      )}
     </div>
   );
 }

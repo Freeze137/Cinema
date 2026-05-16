@@ -1,52 +1,60 @@
-import { createContext, useState, useEffect, type ReactNode, useContext } from 'react';
-import { api } from '../services/api';
+import { createContext, useState, type ReactNode } from 'react';
+import api from '../services/api';
 
-export interface AuthContextData {
-  isAuthenticated: boolean;
-  login: (token: string) => void;
-  logout: () => void;
-  loading: boolean;
+interface User {
+  nome: string;
+  email: string;
 }
 
-const AuthContext = createContext<AuthContextData>({} as AuthContextData);
+interface AuthContextData {
+  user: User | null;
+  signIn: (credentials: any) => Promise<void>;
+  signOut: () => void;
+}
+
+export const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
+  const [user, setUser] = useState<User | null>(() => {
     const token = localStorage.getItem('@Kinoplex:token');
+    const email = localStorage.getItem('@Kinoplex:email');
     
-    if (token) {
-      // Injerta o token nas próximas requisições do axios automaticamente
+    if (token && email) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setIsAuthenticated(true);
+      // Como a API não retorna o nome no login atualmente, usamos o prefixo do email
+      return { nome: email.split('@')[0], email }; 
     }
     
-    setLoading(false);
-  }, []);
+    return null;
+  });
 
-  const login = (token: string) => {
-    localStorage.setItem('@Kinoplex:token', token);
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    setIsAuthenticated(true);
-  };
+  async function signIn({ email, password }: any) {
+    // O FastAPI com OAuth2PasswordRequestForm exige o envio em formato x-www-form-urlencoded
+    const formData = new URLSearchParams();
+    formData.append('username', email);
+    formData.append('password', password);
 
-  const logout = () => {
+    const response = await api.post('/auth/login', formData, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    const { access_token } = response.data;
+    localStorage.setItem('@Kinoplex:token', access_token);
+    localStorage.setItem('@Kinoplex:email', email);
+
+    api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+    setUser({ nome: email.split('@')[0], email });
+  }
+
+  function signOut() {
     localStorage.removeItem('@Kinoplex:token');
-    delete api.defaults.headers.common['Authorization'];
-    setIsAuthenticated(false);
-  };
+    localStorage.removeItem('@Kinoplex:email');
+    setUser(null);
+  }
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
-}
-
-// Hook personalizado para usar o Auth facilmente nos componentes
-export function useAuth() {
-  const context = useContext(AuthContext);
-  return context;
 }

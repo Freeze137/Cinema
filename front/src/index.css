@@ -1,7 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 body {
-  @apply bg-[#0a0a0a] text-zinc-100;
+  background-color: #0a0a0a;
+  color: rgb(244 244 245);
 }

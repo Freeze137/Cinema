@@ -35,3 +35,24 @@ Navegação Dinâmica: Integração fluida entre o catálogo e a tela de checkou
 
 ⚠️ Status do Projeto
 PROJETO EM DESENVOLVIMENTO (Não há versões de teste ou de produção disponíveis no momento).
+
+## 🚀 Como Rodar
+
+### Backend
+```bash
+venv\Scripts\activate
+cd backend
+python main.py
+```
+📍 `http://127.0.0.1:8000`
+
+### Frontend
+```bash
+cd front
+npm install
+npm run dev
+```
+📍 `http://localhost:5173`
+
+### Banco de Dados
+✅ Criado automaticamente em `backend/kinoplex.db`

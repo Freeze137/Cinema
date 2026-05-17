@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import api from '../services/api';
@@ -29,6 +29,7 @@ export function Home() {
   const [loading, setLoading] = useState(true);
   const [activeDate, setActiveDate] = useState(0);
   const [activeModal, setActiveModal] = useState<ModalType>(null);
+  const [selectedCalDay, setSelectedCalDay] = useState<number>(new Date().getDate());
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -55,6 +56,20 @@ export function Home() {
   const featuredMovie = filmes.length > 0 ? filmes[0] : null;
   const dates = ['HOJE 15', 'DOM 16', 'SEG 17', 'TER 18', 'QUA 19'];
 
+  // Gera sessões fictícias futuras com base nos filmes disponíveis
+  function getSessionsForDay(day: number) {
+    if (filmes.length === 0) return [];
+    // Distribui filmes pelos dias de forma determinística
+    const seed = day + today.getMonth();
+    return filmes
+      .filter((_, i) => (seed + i) % 3 !== 0) // ~2/3 dos filmes por dia
+      .slice(0, 4)
+      .map((f, i) => {
+        const horas = ['14:00','16:30','19:00','21:30'];
+        return { filme: f, horario: horas[i % horas.length], sala: `Sala ${(i % 3) + 1}`, preco: [35,40,45][i % 3] };
+      });
+  }
+
   const heroBg = "https://images.unsplash.com/photo-1536440136628-849c177e76a1?auto=format&fit=crop&w=1920&q=80";
   const getPoster = (id: number) => `https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?auto=format&fit=crop&w=400&q=80&sig=${id}`;
 
@@ -68,7 +83,7 @@ export function Home() {
   );
 
   return (
-    <div className="flex h-screen bg-[#0f0f13] text-zinc-100 font-sans overflow-hidden">
+    <div className="flex h-screen bg-[#0f0f13] text-zinc-100 font-sans overflow-hidden" style={{overflowX:"hidden"}}>
 
       {/* SIDEBAR */}
       <aside className="w-24 hidden md:flex flex-col items-center py-8 border-r border-white/5 bg-[#0a0a0e]/80 backdrop-blur-2xl z-50">
@@ -108,7 +123,7 @@ export function Home() {
       </aside>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 flex flex-col h-full overflow-y-auto relative">
+      <main className="flex-1 flex flex-col h-full overflow-y-auto relative scrollbar-hide">
 
         {/* HEADER */}
         <header className="absolute top-0 left-0 right-0 z-40 p-8 flex justify-between items-center bg-gradient-to-b from-[#0f0f13]/90 to-transparent pointer-events-none">
@@ -358,7 +373,7 @@ export function Home() {
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="relative z-10 p-6">
+                  <div className="relative z-10 p-6" style={{overflowX:'hidden'}}>
                     {/* Dias da semana */}
                     <div className="grid grid-cols-7 mb-2">
                       {['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(d => (
@@ -371,6 +386,7 @@ export function Home() {
                         if (!day) return <div key={i} />;
                         const isToday = day === today.getDate();
                         const isPast = day < today.getDate();
+                        const isSelected = day === selectedCalDay;
                         const hasSessao = !isPast && filmes.some(f => f.sessoes?.length > 0);
                         return (
                           <motion.button
@@ -378,59 +394,118 @@ export function Home() {
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: i * 0.008, type: 'tween' }}
+                            onClick={() => !isPast && setSelectedCalDay(day)}
                             className={`relative aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-bold transition-all ${
-                              isToday
-                                ? 'text-white shadow-xl' + " " + 'ring-2 ring-orange-400/50'
+                              isSelected && !isPast
+                                ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30'
+                                : isToday
+                                ? 'text-white shadow-xl ring-2 ring-orange-400/50'
                                 : isPast
                                 ? 'text-zinc-700 cursor-default'
                                 : 'text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer'
                             }`}
                           >
                             {day}
-                            {hasSessao && !isToday && !isPast && (
-                              <span className="absolute bottom-1 w-1 h-1 rounded-full bg-orange-500" />
+                            {hasSessao && !isPast && !isSelected && (
+                              <span className="absolute bottom-1 w-1 h-1 rounded-full bg-orange-400" />
                             )}
                           </motion.button>
                         );
                       })}
                     </div>
 
-                    {/* Sessões de hoje */}
-                    <div className="mt-6 border-t border-white/5 pt-5">
-                      <p className="text-[10px] font-black uppercase tracking-widest mb-3" style={{background:"linear-gradient(90deg,#f97316,#c084fc)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>Sessões de Hoje</p>
-                      {loading ? (
-                        <div className="animate-pulse space-y-2">
-                          {[1,2].map(i => <div key={i} className="h-14 bg-zinc-800/50 rounded-xl" />)}
-                        </div>
-                      ) : filmes.flatMap(f => (f.sessoes || []).map(s => ({ ...s, filme: f }))).length === 0 ? (
-                        <p className="text-zinc-600 text-sm text-center py-4">Sem sessões cadastradas</p>
-                      ) : (
-                        <div className="flex flex-col gap-2 max-h-44 overflow-y-auto">
-                          {filmes.flatMap(f => (f.sessoes || []).map(s => ({ ...s, filme: f }))).map((s, idx) => (
+                    {/* Sessões do dia selecionado */}
+                    {(() => {
+                      const sessoesDoDia = getSessionsForDay(selectedCalDay);
+                      const labelDia = selectedCalDay === today.getDate()
+                        ? 'Sessões de Hoje'
+                        : `Sessões do Dia ${selectedCalDay}`;
+
+                      let conteudo: React.ReactNode;
+                      if (loading) {
+                        conteudo = (
+                          <div className="animate-pulse space-y-2">
+                            {[1, 2, 3].map(i => (
+                              <div key={i} className="h-16 bg-zinc-800/50 rounded-xl" />
+                            ))}
+                          </div>
+                        );
+                      } else if (sessoesDoDia.length === 0) {
+                        conteudo = (
+                          <div className="text-center py-8">
+                            <Film className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
+                            <p className="text-zinc-600 text-sm">Sem sessões para este dia</p>
+                          </div>
+                        );
+                      } else {
+                        conteudo = (
+                          <AnimatePresence mode="wait">
                             <motion.div
-                              key={idx}
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: idx * 0.05, type: 'tween' }}
-                              className="flex items-center gap-3 rounded-xl p-3 cursor-pointer group transition-all hover:scale-[1.01]" style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(249,115,22,0.12)",backdropFilter:"blur(12px)"}}
-                              onClick={() => { navigate(`/sessao/${s.id}`); setActiveModal(null); }}
+                              key={selectedCalDay}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              transition={{ duration: 0.25, type: 'tween' }}
+                              className="flex flex-col gap-2 max-h-52 overflow-y-auto pr-1"
+                              style={{ scrollbarWidth: 'none' }}
                             >
-                              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{background:"linear-gradient(135deg,rgba(249,115,22,0.2),rgba(168,85,247,0.1))",border:"1px solid rgba(249,115,22,0.2)"}}>
-                                <Film className="w-4 h-4 text-orange-400" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-white text-sm font-bold truncate">{s.filme.titulo}</p>
-                                <p className="text-zinc-500 text-xs">Sala {s.sala} • {s.horario}</p>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <p className="font-black text-sm" style={{background:"linear-gradient(90deg,#f97316,#fb923c)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>R$ {s.preco?.toFixed(2)}</p>
-                                <p className="text-zinc-600 text-[10px] group-hover:text-orange-400 transition-colors">Comprar →</p>
-                              </div>
+                              {sessoesDoDia.map((s, idx) => (
+                                <motion.div
+                                  key={idx}
+                                  initial={{ opacity: 0, x: -12 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: idx * 0.06, type: 'tween' }}
+                                  className="flex items-center gap-3 rounded-2xl p-2 cursor-pointer group transition-all hover:scale-[1.01]"
+                                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(249,115,22,0.1)', backdropFilter: 'blur(12px)' }}
+                                  onClick={() => {
+                                    if (s.filme.sessoes?.length > 0) {
+                                      navigate(`/sessao/${s.filme.sessoes[0].id}`);
+                                      setActiveModal(null);
+                                    }
+                                  }}
+                                >
+                                  <div className="shrink-0 w-12 h-16 rounded-xl overflow-hidden" style={{ border: '1px solid rgba(249,115,22,0.2)' }}>
+                                    <img
+                                      src={`https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?auto=format&fit=crop&w=100&q=70&sig=${s.filme.id}`}
+                                      alt={s.filme.titulo}
+                                      className="w-full h-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-white text-sm font-bold truncate mb-0.5">{s.filme.titulo}</p>
+                                    <p className="text-zinc-500 text-xs mb-1">{s.sala} &bull; {s.horario}</p>
+                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full" style={{ background: 'rgba(249,115,22,0.12)', color: '#fb923c', border: '1px solid rgba(249,115,22,0.2)' }}>
+                                      {s.filme.genero || 'Ação'}
+                                    </span>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <p className="font-black text-base" style={{ background: 'linear-gradient(90deg,#f97316,#fb923c)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                                      R$ {s.preco.toFixed(2)}
+                                    </p>
+                                    <p className="text-zinc-600 text-[10px] group-hover:text-orange-400 transition-colors mt-0.5">Comprar -&gt;</p>
+                                  </div>
+                                </motion.div>
+                              ))}
                             </motion.div>
-                          ))}
+                          </AnimatePresence>
+                        );
+                      }
+
+                      return (
+                        <div className="mt-6 border-t border-white/5 pt-5">
+                          <div className="flex items-center justify-between mb-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest" style={{ background: 'linear-gradient(90deg,#f97316,#c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                              {labelDia}
+                            </p>
+                            <span className="text-[10px] text-zinc-600 font-medium">
+                              {sessoesDoDia.length} sessões
+                            </span>
+                          </div>
+                          {conteudo}
                         </div>
-                      )}
-                    </div>
+                      );
+                    })()}
                   </div>
                 </>
               )}

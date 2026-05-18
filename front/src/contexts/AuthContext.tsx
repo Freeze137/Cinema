@@ -2,6 +2,7 @@ import { createContext, useState, type ReactNode } from 'react';
 import api from '../services/api';
 
 interface User {
+  id?: number;
   nome: string;
   email: string;
 }
@@ -17,19 +18,17 @@ export const AuthContext = createContext<AuthContextData>({} as AuthContextData)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
     const token = localStorage.getItem('@Kinoplex:token');
-    const email = localStorage.getItem('@Kinoplex:email');
-    
-    if (token && email) {
+    const userData = localStorage.getItem('@Kinoplex:user');
+
+    if (token && userData) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      // Como a API não retorna o nome no login atualmente, usamos o prefixo do email
-      return { nome: email.split('@')[0], email }; 
+      return JSON.parse(userData);
     }
-    
+
     return null;
   });
 
   async function signIn({ email, password }: any) {
-    // O FastAPI com OAuth2PasswordRequestForm exige o envio em formato x-www-form-urlencoded
     const formData = new URLSearchParams();
     formData.append('username', email);
     formData.append('password', password);
@@ -38,17 +37,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
 
-    const { access_token } = response.data;
+    const { access_token, user: userData } = response.data;
     localStorage.setItem('@Kinoplex:token', access_token);
-    localStorage.setItem('@Kinoplex:email', email);
+    localStorage.setItem('@Kinoplex:user', JSON.stringify(userData));
 
     api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-    setUser({ nome: email.split('@')[0], email });
+    setUser(userData);
   }
 
   function signOut() {
     localStorage.removeItem('@Kinoplex:token');
-    localStorage.removeItem('@Kinoplex:email');
+    localStorage.removeItem('@Kinoplex:user');
+    delete api.defaults.headers.common['Authorization'];
     setUser(null);
   }
 

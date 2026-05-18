@@ -1,5 +1,5 @@
 Kinoplekis - Sistema de Reserva de Ingressos 🎬
-(ESTE É UM PROJETO PESSOAL)
+(ESTE É UM PROJETO PESSOAL) 100% feito em IA para aplicacao de estudos e entendimentos sobre ia aplicada e cursos estudados
 
 Releitura moderna e tecnológica da plataforma de cinema Kinoplex. Este projeto é uma aplicação Full-Stack que permite navegar por um catálogo de filmes, selecionar sessões e reservar assentos em tempo real com persistência de dados.
 

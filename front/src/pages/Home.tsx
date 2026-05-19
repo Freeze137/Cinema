@@ -55,6 +55,7 @@ const cardVariant: Variants = {
 
 export function Home() {
   const [filmes, setFilmes] = useState<Filme[]>([]);
+  const [activeDate, setActiveDate] = useState<Date>(new Date());
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeModal, setActiveModal] = useState<ModalType>(null);
@@ -65,8 +66,12 @@ export function Home() {
 
   useEffect(() => {
     async function fetchFilmes() {
+      setLoading(true);
       try {
-        const response = await api.get('/api/filmes');
+        const isToday = activeDate.toDateString() === new Date().toDateString();
+        // Se for hoje, usa o endpoint com a regra de rotação de 12h. Se não, busca os do dia selecionado.
+        const endpoint = isToday ? '/api/filmes' : `/api/filmes/cartaz/${activeDate.toISOString().split('T')[0]}`;
+        const response = await api.get(endpoint);
         setFilmes(response.data);
       } catch (error) {
         console.error('Erro ao buscar filmes:', error);
@@ -75,7 +80,7 @@ export function Home() {
       }
     }
     fetchFilmes();
-  }, []);
+  }, [activeDate]);
 
   useEffect(() => {
     if (activeModal === 'reservas' && user) {
@@ -188,46 +193,51 @@ export function Home() {
 
         {/* HERO */}
         <section className="relative w-full h-[75vh] flex items-end overflow-hidden shrink-0">
-          <div className="absolute inset-0 z-0">
-            <img src={heroBg} alt="hero" className="w-full h-full object-cover opacity-25" loading="lazy" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f13] via-[#0f0f13]/60 to-[#0f0f13]/20" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#0f0f13]/80 to-transparent" />
-            <div className="absolute bottom-0 left-0 w-[500px] h-[300px] bg-orange-500/5 blur-[100px] rounded-full pointer-events-none" />
+          {/* Imagem de Fundo (Backdrop) com alta qualidade */}
+          <div className="absolute inset-0 z-0 bg-[#0f0f13]">
+            <div 
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-80"
+              style={{ backgroundImage: `url('${heroBg}')` }}
+            />
+            {/* Sobreposição de Gradiente Escuro (Estilo Netflix) */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f13] via-[#0f0f13]/50 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#0f0f13] via-[#0f0f13]/40 to-transparent" />
+            <div className="absolute bottom-0 left-0 w-[500px] h-[300px] bg-orange-500/10 blur-[100px] rounded-full pointer-events-none" />
           </div>
           {loading ? (
-            <div className="relative z-10 px-10 xl:px-20 pb-16 w-full animate-pulse space-y-4">
-              <div className="h-4 w-32 bg-zinc-800 rounded" />
-              <div className="h-16 w-2/3 bg-zinc-800 rounded-xl" />
-              <div className="h-20 w-1/2 bg-zinc-800 rounded-xl" />
+            <div className="relative z-10 p-6 sm:p-12 w-full max-w-7xl mx-auto animate-pulse space-y-4">
+              <div className="h-6 w-32 bg-zinc-800 rounded mb-4" />
+              <div className="h-20 w-2/3 bg-zinc-800 rounded-xl mb-6" />
+              <div className="h-24 w-1/2 bg-zinc-800 rounded-xl" />
             </div>
           ) : featuredMovie && (
-            <motion.div initial="hidden" animate="visible" variants={stagger} className="relative z-10 px-10 xl:px-20 pb-16 max-w-3xl">
-              <motion.p variants={fadeUp} className="text-orange-400 text-xs font-black uppercase tracking-[0.3em] mb-3">Em Destaque</motion.p>
-              <motion.h1 variants={fadeUp} className="text-5xl xl:text-7xl font-black italic uppercase leading-none text-white mb-4 drop-shadow-2xl">
+            <motion.div initial="hidden" animate="visible" variants={stagger} className="relative z-10 p-6 sm:p-12 w-full max-w-7xl mx-auto flex flex-col items-start">
+              <motion.p variants={fadeUp} className="text-orange-400 text-xs sm:text-sm font-black uppercase tracking-[0.3em] mb-3 drop-shadow-md">Em Destaque</motion.p>
+              <motion.h1 variants={fadeUp} className="text-5xl sm:text-7xl font-extrabold tracking-tight text-white mb-3 drop-shadow-lg">
                 {featuredMovie.titulo}
               </motion.h1>
               <motion.div variants={fadeUp} className="flex items-center gap-3 mb-5">
-                <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white text-[10px] font-black px-2 py-0.5 rounded">
+                <span className="border border-zinc-500 text-white px-2 py-0.5 rounded text-xs font-bold bg-black/40 drop-shadow">
                   {featuredMovie.classificacao || '14'}
                 </span>
-                <span className="text-zinc-400 text-xs">{featuredMovie.genero || 'Ação, Drama'}</span>
+                <span className="text-zinc-300 text-sm sm:text-base font-medium drop-shadow">{featuredMovie.genero || 'Ação, Drama'}</span>
                 {featuredMovie.duracao && (
-                  <span className="text-zinc-500 text-xs flex items-center gap-1"><Clock className="w-3 h-3" />{featuredMovie.duracao}</span>
+                  <span className="text-zinc-300 text-sm sm:text-base font-medium flex items-center gap-1 drop-shadow"><Clock className="w-4 h-4" />{featuredMovie.duracao}</span>
                 )}
               </motion.div>
-              <motion.p variants={fadeUp} className="text-zinc-400 text-sm leading-relaxed mb-8 max-w-xl line-clamp-3">
+              <motion.p variants={fadeUp} className="text-zinc-300 text-sm sm:text-base md:text-lg max-w-2xl mb-8 leading-relaxed drop-shadow-md line-clamp-3">
                 {featuredMovie.sinopse}
               </motion.p>
               <motion.div variants={fadeUp} className="flex items-center gap-4">
                 {featuredMovie.sessoes?.length > 0 && (
                   <button
                     onClick={() => navigate(`/sessao/${featuredMovie.sessoes[0].id}`)}
-                    className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white px-8 py-4 rounded-xl font-bold tracking-wide transition-all shadow-lg shadow-orange-500/25 hover:-translate-y-0.5"
+                    className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-md flex items-center gap-2 transition-all shadow-lg hover:scale-105 active:scale-95"
                   >
                     <Ticket className="w-5 h-5" />Comprar Ingresso
                   </button>
                 )}
-                <button className="bg-zinc-900/80 border border-white/5 hover:bg-zinc-800 text-white px-8 py-4 rounded-xl font-bold tracking-wide flex items-center gap-2 transition-all hover:-translate-y-0.5 group backdrop-blur-md">
+                <button className="bg-zinc-500/40 hover:bg-zinc-500/60 backdrop-blur-sm text-white font-bold py-3 px-8 rounded-md transition-all flex items-center gap-2">
                   <Play className="w-5 h-5 group-hover:text-orange-400 transition-colors" />Trailer
                 </button>
               </motion.div>
@@ -236,60 +246,66 @@ export function Home() {
         </section>
 
         {/* MOVIE GRID */}
-        <section className="px-10 xl:px-20 pb-24 pt-10">
+        <section className="w-full max-w-7xl mx-auto p-6 sm:p-12 -mt-10 relative z-20 pb-24">
+          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-6 flex items-center gap-2">
+            Em Cartaz {activeDate.toDateString() !== new Date().toDateString() ? `- ${activeDate.toLocaleDateString('pt-BR')}` : ''}
+          </h2>
           <motion.div
             initial="hidden" animate="visible" variants={stagger}
-            className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8"
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6"
           >
             {loading ? (
-              [1, 2, 3].map(i => (
-                <div key={i} className="bg-zinc-900/30 border border-white/5 rounded-[2rem] h-[500px] animate-pulse" />
+              [1, 2, 3, 4, 5, 6].map(i => (
+                <div key={i} className="w-full aspect-[2/3] bg-zinc-900/50 border border-white/5 rounded-lg animate-pulse" />
               ))
             ) : (
               filmes.map(filme => (
-                <motion.div
+                <motion.article
                   variants={cardVariant}
                   key={filme.id}
-                  className="relative flex flex-col bg-zinc-900 border border-white/5 rounded-[2rem] overflow-hidden group hover:border-orange-500/30 transition-all duration-500 shadow-xl"
+                  className="flex flex-col gap-2 group cursor-pointer"
                 >
-                  <div className="relative h-[380px] w-full overflow-hidden">
+                  <div className="w-full aspect-[2/3] rounded-lg overflow-hidden relative shadow-lg bg-zinc-800">
                     <img
                       src={getPoster(filme.id)}
                       alt={filme.titulo}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                       loading="lazy"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent z-10" />
-                    <div className="absolute bottom-0 left-0 p-6 z-20 w-full">
-                      <h2 className="text-3xl font-black italic text-white mb-2 leading-tight uppercase drop-shadow-md">{filme.titulo}</h2>
-                      <div className="flex items-center gap-3 text-xs font-semibold text-zinc-300">
-                        <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-2 py-0.5 rounded flex items-center gap-1">
-                          <Star className="w-3 h-3 fill-white" />{filme.classificacao || '14'}
-                        </span>
-                        <span className="opacity-70">{filme.genero || 'Ação'}</span>
-                      </div>
+                    {/* Overlay do hover */}
+                    <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4">
+                      <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider mb-3">Sessões</span>
+                      {filme.sessoes.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {filme.sessoes.slice(0, 4).map(sessao => (
+                            <button
+                              key={sessao.id}
+                              onClick={() => navigate(`/sessao/${sessao.id}`)}
+                              className="flex flex-col items-center px-3 py-1.5 bg-orange-500 hover:bg-orange-400 text-white rounded transition-colors text-[11px] font-bold shadow"
+                            >
+                              <span>{sessao.horario}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-zinc-500 text-xs font-medium italic">Sem sessões</p>
+                      )}
                     </div>
                   </div>
-                  <div className="p-6 pt-2 bg-zinc-950/50 flex-1 flex flex-col">
-                    <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Sessões Disponíveis</span>
-                    {filme.sessoes.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {filme.sessoes.slice(0, 4).map(sessao => (
-                          <button
-                            key={sessao.id}
-                            onClick={() => navigate(`/sessao/${sessao.id}`)}
-                            className="flex flex-col items-start px-4 py-2 bg-orange-500/10 hover:bg-gradient-to-r hover:from-orange-500 hover:to-orange-600 text-orange-400 hover:text-white border border-orange-500/30 hover:border-orange-500 rounded-xl transition-all text-[11px] font-bold"
-                          >
-                            <span>{sessao.horario}</span>
-                            <span className="opacity-70 text-[9px]">{sessao.sala}</span>
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-zinc-600 text-sm font-medium italic">Sem sessões</p>
-                    )}
+                  <div className="mt-1">
+                    <h3 className="text-white font-semibold truncate text-sm sm:text-base group-hover:text-orange-400 transition-colors">
+                      {filme.titulo}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded font-bold">
+                        {filme.classificacao || '14'}
+                      </span>
+                      <p className="text-zinc-400 text-xs sm:text-sm truncate">
+                        {filme.genero || 'Ação'}
+                      </p>
+                    </div>
                   </div>
-                </motion.div>
+                </motion.article>
               ))
             )}
           </motion.div>
@@ -417,7 +433,13 @@ export function Home() {
                             initial={{ opacity: 0, scale: 0.8 }}
                             animate={{ opacity: 1, scale: 1 }}
                             transition={{ delay: i * 0.008, type: 'tween' }}
-                            onClick={() => !isPast && setSelectedCalDay(day)}
+                            onClick={() => {
+                              if (!isPast) {
+                                setSelectedCalDay(day);
+                                setActiveDate(new Date(today.getFullYear(), today.getMonth(), day));
+                                setActiveModal(null);
+                              }
+                            }}
                             className={`relative aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-bold transition-all ${isSelected && !isPast
                               ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/30'
                               : isToday
@@ -441,57 +463,11 @@ export function Home() {
                       const sessoesDoDia = getSessionsForDay(selectedCalDay);
                       const labelDia = selectedCalDay === today.getDate() ? 'Sessões de Hoje' : `Sessões do Dia ${selectedCalDay}`;
 
-                      let conteudo: React.ReactNode;
-                      if (sessoesDoDia.length === 0) {
-                        conteudo = (
-                          <div className="text-center py-8">
-                            <Film className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
-                            <p className="text-zinc-600 text-sm">Sem sessões para este dia</p>
-                          </div>
-                        );
-                      } else {
-                        conteudo = (
-                          <motion.div className="flex flex-col gap-2 max-h-52 overflow-y-auto pr-1" style={{ scrollbarWidth: 'none' }}>
-                            {sessoesDoDia.map((s, idx) => (
-                              <motion.button
-                                key={idx}
-                                initial={{ opacity: 0, x: -12 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: idx * 0.06, type: 'tween' }}
-                                onClick={() => {
-                                  const filmeObj = filmes.find(f => f.titulo === s.filme_titulo);
-                                  if (filmeObj && filmeObj.sessoes?.length > 0) {
-                                    navigate(`/sessao/${filmeObj.sessoes[0].id}`);
-                                    setActiveModal(null);
-                                  }
-                                }}
-                                className="flex items-center gap-3 rounded-2xl p-3 cursor-pointer group transition-all hover:scale-[1.01] text-left"
-                                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(249,115,22,0.1)', backdropFilter: 'blur(12px)' }}
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-white text-sm font-bold truncate">{s.filme_titulo}</p>
-                                  <p className="text-zinc-500 text-xs">Sala {s.sala} • {s.horario}</p>
-                                </div>
-                                <span className="text-[10px] font-black px-2 py-1 rounded-full shrink-0 group-hover:text-orange-300 transition-colors" style={{ background: 'rgba(249,115,22,0.12)', color: '#fb923c', border: '1px solid rgba(249,115,22,0.2)' }}>
-                                  Comprar →
-                                </span>
-                              </motion.button>
-                            ))}
-                          </motion.div>
-                        );
-                      }
-
                       return (
-                        <div className="mt-6 border-t border-white/5 pt-5">
-                          <div className="flex items-center justify-between mb-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest" style={{ background: 'linear-gradient(90deg,#f97316,#c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                              {labelDia}
-                            </p>
-                            <span className="text-[10px] text-zinc-600 font-medium">
-                              {sessoesDoDia.length} sessão{sessoesDoDia.length !== 1 ? 'ões' : ''}
-                            </span>
-                          </div>
-                          {conteudo}
+                        <div className="mt-6 border-t border-white/5 pt-5 text-center">
+                           <p className="text-sm text-zinc-400 mb-4">
+                             Ao clicar em um dia, a grade principal de filmes será atualizada mostrando a programação exata.
+                           </p>
                         </div>
                       );
                     })()}

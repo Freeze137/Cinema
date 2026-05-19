@@ -239,7 +239,9 @@ def criar_assentos_para_sala(db: Session, sala: SalaDB, sessao: SessaoDB):
 
     for fileira in fileiras:
         for numero in range(1, assentos_por_fileira + 1):
-            tamanho = "GRANDE" if numero in [1, 2, 3, assentos_por_fileira - 2, assentos_por_fileira - 1, assentos_por_fileira] and fileira in ['A', 'H'] else "NORMAL"
+            # Regra Kinoplex: Cadeiras da ponta (1 a 3 e as 3 últimas) nas fileiras A, B, C (1ª à 3ª) e H (última)
+            is_ponta = numero in [1, 2, 3, assentos_por_fileira - 2, assentos_por_fileira - 1, assentos_por_fileira]
+            tamanho = "GRANDE" if is_ponta and fileira in ['A', 'B', 'C', 'H'] else "NORMAL"
 
             assento = AssentoDB(
                 sessao_id=sessao.id,

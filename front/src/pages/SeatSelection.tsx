@@ -243,15 +243,17 @@ export function SeatSelection() {
                                   key={assento.id}
                                   whileHover={!isOcupado ? { scale: 1.05 } : {}}
                                   onClick={() => !isOcupado && toggleAssento(assento.id)}
-                                  className={`relative transition-all ${isGrande ? 'w-10 h-10' : 'w-8 h-8'} rounded-lg font-bold text-xs flex items-center justify-center ${
+                                  className={`relative flex items-center justify-center transition-all ${isGrande ? 'w-10 h-10 sm:w-12 sm:h-12' : 'w-8 h-8 sm:w-10 sm:h-10'} rounded-t-lg duration-200 ${
                                     isOcupado
-                                      ? 'bg-zinc-700 cursor-not-allowed'
+                                      ? 'bg-zinc-700 opacity-60 cursor-not-allowed'
                                       : isSelected
-                                        ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white'
-                                        : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                        ? 'bg-orange-500 hover:bg-orange-400 text-white shadow-md shadow-orange-500/30'
+                                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm'
                                   }`}
                                 >
-                                  {isOcupado ? '✕' : isSelected ? '✓' : ''}
+                                  <span className="text-[10px] sm:text-xs font-bold text-white drop-shadow-md tracking-tighter">
+                                    {assento.fileira}{assento.numero}
+                                  </span>
                                 </motion.button>
                               );
                             })}
@@ -264,15 +266,21 @@ export function SeatSelection() {
                   {/* Legenda */}
                   <div className="flex gap-8 justify-center mt-8 flex-wrap">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-emerald-600 rounded-lg" />
+                      <div className="w-6 h-6 bg-emerald-600 rounded-t-lg flex items-center justify-center">
+                        <span className="text-[9px] text-white font-bold">A1</span>
+                      </div>
                       <span className="text-sm text-zinc-400">Disponível</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-orange-500 rounded-lg" />
+                      <div className="w-6 h-6 bg-orange-500 rounded-t-lg flex items-center justify-center">
+                        <span className="text-[9px] text-white font-bold">A2</span>
+                      </div>
                       <span className="text-sm text-zinc-400">Selecionado</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-zinc-700 rounded-lg" />
+                      <div className="w-6 h-6 bg-zinc-700 opacity-60 rounded-t-lg flex items-center justify-center">
+                        <span className="text-[9px] text-white font-bold">A3</span>
+                      </div>
                       <span className="text-sm text-zinc-400">Ocupado</span>
                     </div>
                   </div>

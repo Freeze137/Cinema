@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useContext } from 'react';
+import { useEffect, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import api from '../services/api';
-import { Film, Ticket, Clock, Search, User, Play, Compass, Star, Calendar as CalendarIcon, CheckCircle, X, MapPin } from 'lucide-react';
+import { Film, Ticket, Clock, Search, User, Play, Compass, Calendar as CalendarIcon, CheckCircle, X, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 
 interface Sessao {
@@ -21,6 +21,7 @@ interface Filme {
   duracao?: string;
   genero?: string;
   classificacao?: string;
+  elenco?: string;
   lote?: number;
   sessoes: Sessao[];
 }
@@ -36,7 +37,7 @@ interface Reserva {
   ingressos: Array<{ tipo: string; valor: number }>;
 }
 
-type ModalType = 'reservas' | 'calendario' | null;
+type ModalType = 'reservas' | 'calendario' | 'detalhes' | null;
 
 const fadeUp: Variants = {
   hidden: { opacity: 0, y: 20 },
@@ -53,12 +54,23 @@ const cardVariant: Variants = {
   visible: { opacity: 1, scale: 1, transition: { duration: 0.4, type: 'tween' } },
 };
 
+const upcomingMovies = [
+  { id: 201, titulo: "Homem-Aranha: Além", genero: "Animação / Ação", dataEstreia: "Estreia em Outubro" },
+  { id: 202, titulo: "Avatar 3: O Portador", genero: "Ficção Científica", dataEstreia: "A partir do dia 15" },
+  { id: 203, titulo: "Vingadores: Guerras", genero: "Ação / Heróis", dataEstreia: "Estreia em Dezembro" },
+  { id: 204, titulo: "Missão Impossível 8", genero: "Ação / Espionagem", dataEstreia: "A partir de Novembro" },
+  { id: 205, titulo: "Shrek 5: O Retorno", genero: "Animação / Comédia", dataEstreia: "Estreia em Janeiro" },
+  { id: 206, titulo: "Star Wars: The Hunt", genero: "Aventura / Fantasia", dataEstreia: "A partir do dia 20" },
+];
+
 export function Home() {
   const [filmes, setFilmes] = useState<Filme[]>([]);
   const [activeDate, setActiveDate] = useState<Date>(new Date());
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeModal, setActiveModal] = useState<ModalType>(null);
+  const [selectedMovie, setSelectedMovie] = useState<Filme | null>(null);
+  const [calendarViewDate, setCalendarViewDate] = useState<Date>(new Date());
   const [selectedCalDay, setSelectedCalDay] = useState<number>(new Date().getDate());
   const [sessionesCalendarData, setSessionesCalendarData] = useState<Record<number, any[]>>({});
   const { user } = useContext(AuthContext);
@@ -94,9 +106,8 @@ export function Home() {
     if (activeModal === 'calendario') {
       async function fetchCalendarData() {
         try {
-          const hoje = new Date();
           const response = await api.get(
-            `/api/calendario/${hoje.getFullYear()}/${hoje.getMonth() + 1}`
+            `/api/calendario/${calendarViewDate.getFullYear()}/${calendarViewDate.getMonth() + 1}`
           );
           setSessionesCalendarData(response.data.dias_com_sessoes || {});
         } catch (error) {
@@ -105,7 +116,7 @@ export function Home() {
       }
       fetchCalendarData();
     }
-  }, [activeModal]);
+  }, [activeModal, calendarViewDate]);
 
   const featuredMovie = filmes.length > 0 ? filmes[0] : null;
 
@@ -114,9 +125,9 @@ export function Home() {
 
   // Calendário
   const today = new Date();
-  const monthName = today.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).getDay();
-  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const monthName = calendarViewDate.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+  const firstDay = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth(), 1).getDay();
+  const daysInMonth = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 0).getDate();
   const calCells = Array.from({ length: firstDay + daysInMonth }, (_, i) =>
     i < firstDay ? null : i - firstDay + 1
   );
@@ -166,7 +177,7 @@ export function Home() {
       </aside>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 flex flex-col h-full overflow-y-auto relative scrollbar-hide">
+      <main className="flex-1 flex flex-col h-full overflow-y-auto relative [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
 
         {/* HEADER */}
         <header className="absolute top-0 left-0 right-0 z-40 p-8 flex justify-between items-center bg-gradient-to-b from-[#0f0f13]/90 to-transparent pointer-events-none">
@@ -192,7 +203,7 @@ export function Home() {
         </header>
 
         {/* HERO */}
-        <section className="relative w-full h-[75vh] flex items-end overflow-hidden shrink-0">
+        <section className="relative w-full h-[85vh] flex items-end overflow-hidden shrink-0 pb-24 sm:pb-32">
           {/* Imagem de Fundo (Backdrop) com alta qualidade */}
           <div className="absolute inset-0 z-0 bg-[#0f0f13]">
             <div 
@@ -216,7 +227,7 @@ export function Home() {
               <motion.h1 variants={fadeUp} className="text-5xl sm:text-7xl font-extrabold tracking-tight text-white mb-3 drop-shadow-lg">
                 {featuredMovie.titulo}
               </motion.h1>
-              <motion.div variants={fadeUp} className="flex items-center gap-3 mb-5">
+              <motion.div variants={fadeUp} className="flex items-center gap-3 mb-4">
                 <span className="border border-zinc-500 text-white px-2 py-0.5 rounded text-xs font-bold bg-black/40 drop-shadow">
                   {featuredMovie.classificacao || '14'}
                 </span>
@@ -225,20 +236,20 @@ export function Home() {
                   <span className="text-zinc-300 text-sm sm:text-base font-medium flex items-center gap-1 drop-shadow"><Clock className="w-4 h-4" />{featuredMovie.duracao}</span>
                 )}
               </motion.div>
-              <motion.p variants={fadeUp} className="text-zinc-300 text-sm sm:text-base md:text-lg max-w-2xl mb-8 leading-relaxed drop-shadow-md line-clamp-3">
+              <motion.p variants={fadeUp} className="text-zinc-200 text-sm md:text-base font-light max-w-2xl mb-8 leading-relaxed drop-shadow-md line-clamp-4 md:line-clamp-none">
                 {featuredMovie.sinopse}
               </motion.p>
               <motion.div variants={fadeUp} className="flex items-center gap-4">
                 {featuredMovie.sessoes?.length > 0 && (
                   <button
                     onClick={() => navigate(`/sessao/${featuredMovie.sessoes[0].id}`)}
-                    className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-md flex items-center gap-2 transition-all shadow-lg hover:scale-105 active:scale-95"
+                    className="bg-white hover:bg-white/80 text-black font-bold py-2.5 px-6 sm:px-8 rounded-md flex items-center gap-2 transition-all shadow-lg hover:scale-105 active:scale-95"
                   >
-                    <Ticket className="w-5 h-5" />Comprar Ingresso
+                    <Play className="w-5 h-5 fill-current" />Assistir / Comprar
                   </button>
                 )}
-                <button className="bg-zinc-500/40 hover:bg-zinc-500/60 backdrop-blur-sm text-white font-bold py-3 px-8 rounded-md transition-all flex items-center gap-2">
-                  <Play className="w-5 h-5 group-hover:text-orange-400 transition-colors" />Trailer
+                <button onClick={() => { setSelectedMovie(featuredMovie); setActiveModal('detalhes'); }} className="bg-zinc-500/50 hover:bg-zinc-500/70 backdrop-blur-md text-white font-bold py-2.5 px-6 sm:px-8 rounded-md transition-all flex items-center gap-2 hover:scale-105 active:scale-95">
+                  <Film className="w-5 h-5" />Mais Informações
                 </button>
               </motion.div>
             </motion.div>
@@ -246,8 +257,8 @@ export function Home() {
         </section>
 
         {/* MOVIE GRID */}
-        <section className="w-full max-w-7xl mx-auto p-6 sm:p-12 -mt-10 relative z-20 pb-24">
-          <h2 className="text-2xl sm:text-3xl font-bold text-white mb-6 flex items-center gap-2">
+        <section className="w-full max-w-7xl mx-auto px-6 sm:px-12 -mt-24 sm:-mt-32 relative z-20 pb-16">
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-6 flex items-center gap-2 drop-shadow-md">
             Em Cartaz {activeDate.toDateString() !== new Date().toDateString() ? `- ${activeDate.toLocaleDateString('pt-BR')}` : ''}
           </h2>
           <motion.div
@@ -264,6 +275,7 @@ export function Home() {
                   variants={cardVariant}
                   key={filme.id}
                   className="flex flex-col gap-2 group cursor-pointer"
+                  onClick={() => { setSelectedMovie(filme); setActiveModal('detalhes'); }}
                 >
                   <div className="w-full aspect-[2/3] rounded-lg overflow-hidden relative shadow-lg bg-zinc-800">
                     <img
@@ -280,10 +292,11 @@ export function Home() {
                           {filme.sessoes.slice(0, 4).map(sessao => (
                             <button
                               key={sessao.id}
-                              onClick={() => navigate(`/sessao/${sessao.id}`)}
+                              onClick={(e) => { e.stopPropagation(); navigate(`/sessao/${sessao.id}`); }}
                               className="flex flex-col items-center px-3 py-1.5 bg-orange-500 hover:bg-orange-400 text-white rounded transition-colors text-[11px] font-bold shadow"
                             >
                               <span>{sessao.horario}</span>
+                              <span className="text-[9px] font-medium opacity-90 truncate max-w-[60px]">{sessao.tipo_sala || 'STD'}</span>
                             </button>
                           ))}
                         </div>
@@ -308,6 +321,39 @@ export function Home() {
                 </motion.article>
               ))
             )}
+          </motion.div>
+        </section>
+
+        {/* UPCOMING MOVIES (MOCK) */}
+        <section className="w-full max-w-7xl mx-auto px-6 sm:px-12 relative z-20 pb-32">
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-6 flex items-center gap-2 drop-shadow-md">
+            Próximos Filmes
+          </h2>
+          <motion.div
+            initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-50px" }} variants={stagger}
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6"
+          >
+            {upcomingMovies.map(movie => (
+              <motion.article variants={cardVariant} key={movie.id} className="flex flex-col gap-2 group relative overflow-hidden rounded-lg cursor-default">
+                <div className="w-full aspect-[2/3] rounded-lg overflow-hidden relative shadow-lg bg-zinc-800">
+                  <img
+                    src={getPoster(movie.id)}
+                    alt={movie.titulo}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-60 group-hover:opacity-80 grayscale-[20%]"
+                    loading="lazy"
+                  />
+                  <div className="absolute top-2 right-2 bg-purple-600/90 backdrop-blur text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg uppercase tracking-wider">
+                    Em Breve
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-4 pt-12">
+                    <p className="text-purple-400 text-[10px] font-black uppercase tracking-widest mb-1">{movie.dataEstreia}</p>
+                    <h3 className="text-white font-semibold truncate text-sm sm:text-base leading-tight">
+                      {movie.titulo}
+                    </h3>
+                  </div>
+                </div>
+              </motion.article>
+            ))}
           </motion.div>
         </section>
       </main>
@@ -406,7 +452,17 @@ export function Home() {
                   <div className="relative z-10 p-6 border-b border-white/5 flex items-center justify-between">
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ background: "linear-gradient(90deg,#f97316,#c084fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Programação</p>
-                      <h2 className="text-2xl font-black text-white capitalize">{monthName}</h2>
+                      <div className="flex items-center gap-3">
+                        <button 
+                          onClick={() => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1))}
+                          className="p-1 hover:bg-white/10 rounded-lg transition-colors text-zinc-400 hover:text-white"
+                        ><ChevronLeft className="w-5 h-5" /></button>
+                        <h2 className="text-xl sm:text-2xl font-black text-white capitalize min-w-[140px] text-center">{monthName}</h2>
+                        <button 
+                          onClick={() => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1))}
+                          className="p-1 hover:bg-white/10 rounded-lg transition-colors text-zinc-400 hover:text-white"
+                        ><ChevronRight className="w-5 h-5" /></button>
+                      </div>
                     </div>
                     <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all hover:bg-white/10" style={{ backdropFilter: "blur(8px)" }}>
                       <X className="w-4 h-4" />
@@ -423,9 +479,12 @@ export function Home() {
                     <div className="grid grid-cols-7 gap-1">
                       {calCells.map((day, i) => {
                         if (!day) return <div key={i} />;
-                        const isToday = day === today.getDate();
-                        const isPast = day < today.getDate();
-                        const isSelected = day === selectedCalDay;
+                        const currentCellDate = new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth(), day);
+                        const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                        
+                        const isToday = currentCellDate.getTime() === todayDateOnly.getTime();
+                        const isPast = currentCellDate < todayDateOnly;
+                        const isSelected = currentCellDate.getTime() === activeDate.getTime();
                         const hasSessao = sessionesCalendarData[day] && sessionesCalendarData[day].length > 0;
                         return (
                           <motion.button
@@ -436,7 +495,7 @@ export function Home() {
                             onClick={() => {
                               if (!isPast) {
                                 setSelectedCalDay(day);
-                                setActiveDate(new Date(today.getFullYear(), today.getMonth(), day));
+                                setActiveDate(currentCellDate);
                                 setActiveModal(null);
                               }
                             }}
@@ -465,12 +524,61 @@ export function Home() {
 
                       return (
                         <div className="mt-6 border-t border-white/5 pt-5 text-center">
+                           <h4 className="text-white font-bold mb-2">{labelDia}</h4>
+                           {sessoesDoDia.length > 0 ? (
+                             <p className="text-sm text-orange-400 mb-4 font-medium">Há {sessoesDoDia.length} sessões agendadas para este dia.</p>
+                           ) : (
+                             <p className="text-sm text-zinc-500 mb-4 italic">Nenhuma sessão encontrada para esta data.</p>
+                           )}
                            <p className="text-sm text-zinc-400 mb-4">
                              Ao clicar em um dia, a grade principal de filmes será atualizada mostrando a programação exata.
                            </p>
                         </div>
                       );
                     })()}
+                  </div>
+                </>
+              )}
+
+              {/* MODAL DETALHES DO FILME */}
+              {activeModal === 'detalhes' && selectedMovie && (
+                <>
+                  <div className="relative z-10 p-6 border-b border-white/5 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ background: "linear-gradient(90deg,#f97316,#c084fc)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>Sobre o Filme</p>
+                      <h2 className="text-2xl font-black text-white">{selectedMovie.titulo}</h2>
+                    </div>
+                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all hover:bg-white/10" style={{ backdropFilter: "blur(8px)" }}>
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="relative z-10 p-6 max-h-[60vh] overflow-y-auto space-y-6">
+                    <div>
+                      <h3 className="text-white font-bold text-lg mb-2">Sinopse</h3>
+                      <p className="text-zinc-300 text-sm leading-relaxed">{selectedMovie.sinopse}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 bg-white/5 p-4 rounded-xl border border-white/10">
+                      <div>
+                        <h3 className="text-zinc-500 text-xs font-bold uppercase mb-1">Gênero</h3>
+                        <p className="text-zinc-200 text-sm font-medium">{selectedMovie.genero || 'Não informado'}</p>
+                      </div>
+                      <div>
+                        <h3 className="text-zinc-500 text-xs font-bold uppercase mb-1">Duração</h3>
+                        <p className="text-zinc-200 text-sm font-medium flex items-center gap-1"><Clock className="w-3 h-3 text-orange-400"/> {selectedMovie.duracao || 'Não informado'}</p>
+                      </div>
+                      <div>
+                        <h3 className="text-zinc-500 text-xs font-bold uppercase mb-1">Classificação</h3>
+                        <span className="inline-block border border-zinc-500 text-white px-2 py-0.5 rounded text-xs font-bold bg-black/40">
+                          {selectedMovie.classificacao || 'Livre'}
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="text-zinc-500 text-xs font-bold uppercase mb-1">Elenco Principal</h3>
+                        <p className="text-zinc-200 text-sm font-medium italic">
+                          {selectedMovie.elenco || 'Informação indisponível'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </>
               )}

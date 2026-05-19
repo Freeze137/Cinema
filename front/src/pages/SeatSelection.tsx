@@ -2,8 +2,17 @@ import React, { useEffect, useState, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import api from '../services/api';
-import { ChevronLeft, MapPin, Clock, DollarSign, Users, Check, AlertCircle, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, MapPin, Clock, Check, AlertCircle, Loader2, QrCode } from 'lucide-react';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import Cards, { type Focused } from 'react-credit-cards-2';
+import 'react-credit-cards-2/dist/es/styles-compiled.css';
+
+const appleSpring = { type: "spring" as const, stiffness: 400, damping: 30, mass: 0.8 };
+const applePage: Variants = {
+  hidden: { opacity: 0, y: 32, scale: 0.98 },
+  visible: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 350, damping: 35, mass: 0.8 } },
+  exit: { opacity: 0, y: -16, scale: 0.98, transition: { duration: 0.25, ease: [0.32, 0.72, 0, 1] } }
+};
 
 interface Sessao {
   id: number;
@@ -60,6 +69,14 @@ export function SeatSelection() {
   const [mensagemSucesso, setMensagemSucesso] = useState('');
   const [erro, setErro] = useState('');
 
+  const [cardState, setCardState] = useState({
+    number: '',
+    expiry: '',
+    cvc: '',
+    name: '',
+    focus: '' as Focused,
+  });
+
   useEffect(() => {
     if (!user) {
       navigate('/login');
@@ -89,12 +106,33 @@ export function SeatSelection() {
     }
   }
 
+  // Função corrigida para avançar de etapa e preencher ingressos padrão
+  function handleAvancarParaIngressos() {
+    if (assentosSelecionados.length > 0) {
+      setIngressos({
+        inteira: assentosSelecionados.length,
+        meia: 0,
+        itau_promo: 0
+      });
+      setEtapa('ingressos');
+    }
+  }
+
   function handleIngressoChange(tipo: 'inteira' | 'meia' | 'itau_promo', valor: number) {
     setIngressos(prev => ({
       ...prev,
       [tipo]: Math.max(0, valor)
     }));
   }
+
+  const handleCardInputChange = (evt: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = evt.target;
+    setCardState((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCardInputFocus = (evt: React.FocusEvent<HTMLInputElement>) => {
+    setCardState((prev) => ({ ...prev, focus: evt.target.name as Focused }));
+  };
 
   function calcularTotal() {
     if (!sessao) return 0;
@@ -104,7 +142,9 @@ export function SeatSelection() {
     return totalInteira + totalMeia + totalItau;
   }
 
-  async function handleConfirmarReserva() {
+  async function handleConfirmarReserva(e: React.FormEvent) {
+    e.preventDefault(); // Impede o recarregamento da tela (bug fix de pagamento inoperante)
+    
     if (!sessao || assentosSelecionados.length === 0) {
       setErro('Selecione pelo menos um assento');
       return;
@@ -180,7 +220,7 @@ export function SeatSelection() {
             <h1 className="text-3xl font-black text-white">{sessao.filme.titulo}</h1>
             <div className="flex items-center gap-4 mt-2 text-sm text-zinc-400">
               <span className="flex items-center gap-1">
-                <MapPin className="w-4 h-4" /> Sala {sessao.sala.numero} ({sessao.sala.tipo})
+                <MapPin className="w-4 h-4" /> Sala {sessao.sala.numero} <span className="bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ml-1 border border-orange-500/30 shadow-[0_0_10px_rgba(249,115,22,0.2)]">{sessao.sala.tipo}</span>
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="w-4 h-4" /> {sessao.horario}
@@ -194,8 +234,10 @@ export function SeatSelection() {
           {(['assentos', 'ingressos', 'pagamento', 'sucesso'] as Etapa[]).map((e, idx) => (
             <React.Fragment key={e}>
               <motion.button
+                whileTap={{ scale: 0.9 }}
+                layout
                 onClick={() => e !== 'sucesso' && setEtapa(e)}
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ${
                   (['assentos', 'ingressos', 'pagamento', 'sucesso'].indexOf(etapa) >= idx)
                     ? 'bg-orange-500 text-white'
                     : 'bg-zinc-800 text-zinc-600'
@@ -208,9 +250,10 @@ export function SeatSelection() {
           ))}
         </div>
 
+        <AnimatePresence mode="wait">
         {/* ETAPA 1: ASSENTOS */}
         {etapa === 'assentos' && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+          <motion.div key="etapa-assentos" variants={applePage} initial="hidden" animate="visible" exit="exit" className="origin-top">
             <div className="bg-zinc-900 border border-white/5 rounded-3xl p-8 mb-8">
               <h2 className="text-2xl font-black mb-6 text-white">Escolha seus Assentos</h2>
 
@@ -241,9 +284,12 @@ export function SeatSelection() {
                               return (
                                 <motion.button
                                   key={assento.id}
-                                  whileHover={!isOcupado ? { scale: 1.05 } : {}}
+                                  layout
+                                  transition={appleSpring}
+                                  whileHover={!isOcupado ? { scale: 1.15, y: -4 } : {}}
+                                  whileTap={!isOcupado ? { scale: 0.85 } : {}}
                                   onClick={() => !isOcupado && toggleAssento(assento.id)}
-                                  className={`relative flex items-center justify-center transition-all ${isGrande ? 'w-10 h-10 sm:w-12 sm:h-12' : 'w-8 h-8 sm:w-10 sm:h-10'} rounded-t-lg duration-200 ${
+                                  className={`relative flex items-center justify-center transition-colors ${isGrande ? 'w-10 h-10 sm:w-12 sm:h-12' : 'w-8 h-8 sm:w-10 sm:h-10'} rounded-t-lg ${
                                     isOcupado
                                       ? 'bg-zinc-700 opacity-60 cursor-not-allowed'
                                       : isSelected
@@ -293,15 +339,21 @@ export function SeatSelection() {
                   <p className="text-orange-400 font-bold">
                     Assentos selecionados ({assentosSelecionados.length}):
                   </p>
-                  <div className="flex gap-2 flex-wrap mt-2">
+                  <motion.div layout className="flex gap-2 flex-wrap mt-2">
+                    <AnimatePresence>
                     {sessao.assentos
                       .filter(a => assentosSelecionados.includes(a.id))
                       .map(a => (
-                        <span key={a.id} className="bg-orange-500/20 text-orange-300 px-3 py-1 rounded-lg text-sm font-bold">
+                        <motion.span
+                          layout
+                          initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.15 } }} transition={appleSpring}
+                          key={a.id} className="bg-orange-500/20 text-orange-300 px-3 py-1 rounded-lg text-sm font-bold"
+                        >
                           {a.fileira}{a.numero}
-                        </span>
+                        </motion.span>
                       ))}
-                  </div>
+                    </AnimatePresence>
+                  </motion.div>
                 </div>
               )}
 
@@ -320,7 +372,7 @@ export function SeatSelection() {
                   Cancelar
                 </button>
                 <button
-                  onClick={() => assentosSelecionados.length > 0 && setEtapa('ingressos')}
+                  onClick={handleAvancarParaIngressos}
                   disabled={assentosSelecionados.length === 0}
                   className={`px-8 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${
                     assentosSelecionados.length > 0
@@ -337,7 +389,7 @@ export function SeatSelection() {
 
         {/* ETAPA 2: INGRESSOS */}
         {etapa === 'ingressos' && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+          <motion.div key="etapa-ingressos" variants={applePage} initial="hidden" animate="visible" exit="exit" className="origin-top">
             <div className="bg-zinc-900 border border-white/5 rounded-3xl p-8 mb-8">
               <h2 className="text-2xl font-black mb-6 text-white">Selecione os Ingressos</h2>
 
@@ -355,28 +407,32 @@ export function SeatSelection() {
                     <p className="text-2xl font-black text-orange-400 mb-4">R${ing.preco.toFixed(2)}</p>
 
                     <div className="flex items-center gap-3 bg-zinc-950 rounded-xl p-2">
-                      <button
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.85 }}
                         onClick={() =>
                           handleIngressoChange(ing.tipo as 'inteira' | 'meia' | 'itau_promo', ingressos[ing.tipo as 'inteira' | 'meia' | 'itau_promo'] - 1)
                         }
-                        className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center transition-all"
+                        className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center transition-colors text-white"
                       >
                         −
-                      </button>
+                      </motion.button>
                       <span className="flex-1 text-center font-black text-lg">
                         {ingressos[ing.tipo as 'inteira' | 'meia' | 'itau_promo']}
                       </span>
-                      <button
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.85 }}
                         onClick={() =>
                           handleIngressoChange(
                             ing.tipo as 'inteira' | 'meia' | 'itau_promo',
                             ingressos[ing.tipo as 'inteira' | 'meia' | 'itau_promo'] + 1
                           )
                         }
-                        className="w-8 h-8 rounded-lg bg-orange-600 hover:bg-orange-500 flex items-center justify-center transition-all font-bold"
+                        className="w-8 h-8 rounded-lg bg-orange-600 hover:bg-orange-500 flex items-center justify-center transition-colors font-bold text-white"
                       >
                         +
-                      </button>
+                      </motion.button>
                     </div>
                   </div>
                 ))}
@@ -414,7 +470,7 @@ export function SeatSelection() {
 
         {/* ETAPA 3: PAGAMENTO */}
         {etapa === 'pagamento' && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+          <motion.div key="etapa-pagamento" variants={applePage} initial="hidden" animate="visible" exit="exit" className="origin-top">
             <div className="grid md:grid-cols-3 gap-8">
               {/* Resumo */}
               <div className="md:col-span-2 bg-zinc-900 border border-white/5 rounded-3xl p-8">
@@ -427,8 +483,12 @@ export function SeatSelection() {
                   ].map(met => (
                     <motion.button
                       key={met.id}
+                      layout
+                      transition={appleSpring}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={() => setMetodoPagamento(met.id)}
-                      className={`w-full p-4 rounded-2xl border-2 transition-all flex items-center gap-3 ${
+                      className={`w-full p-4 rounded-2xl border-2 transition-colors flex items-center gap-3 ${
                         metodoPagamento === met.id
                           ? 'border-orange-500 bg-orange-500/10'
                           : 'border-white/5 bg-zinc-800 hover:border-orange-500/30'
@@ -444,13 +504,41 @@ export function SeatSelection() {
                 </div>
 
                 {metodoPagamento === 'cartao' && (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
+                    <div className="flex justify-center mb-6">
+                      <Cards
+                        number={cardState.number}
+                        expiry={cardState.expiry}
+                        cvc={cardState.cvc}
+                        name={cardState.name}
+                      focused={cardState.focus || undefined}
+                      focused={cardState.focus || ""}
+                        placeholders={{ name: 'SEU NOME AQUI' }}
+                        locale={{ valid: 'Validade' }}
+                      />
+                    </div>
                     <div>
                       <label className="block text-sm font-bold mb-2 text-zinc-300">Número do Cartão</label>
                       <input
                         type="text"
-                        placeholder="1234 5678 9012 3456"
+                        name="number"
+                        placeholder="Número do Cartão"
+                        value={cardState.number}
+                        onChange={handleCardInputChange}
+                        onFocus={handleCardInputFocus}
                         maxLength={16}
+                        className="w-full px-4 py-3 bg-zinc-800 border border-white/5 rounded-xl text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold mb-2 text-zinc-300">Nome no Cartão</label>
+                      <input
+                        type="text"
+                        name="name"
+                        placeholder="Nome Impresso no Cartão"
+                        value={cardState.name}
+                        onChange={handleCardInputChange}
+                        onFocus={handleCardInputFocus}
                         className="w-full px-4 py-3 bg-zinc-800 border border-white/5 rounded-xl text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500"
                       />
                     </div>
@@ -459,23 +547,46 @@ export function SeatSelection() {
                         <label className="block text-sm font-bold mb-2 text-zinc-300">Validade</label>
                         <input
                           type="text"
-                          placeholder="MM/YY"
-                          maxLength={5}
+                          name="expiry"
+                          placeholder="MM/AA"
+                          value={cardState.expiry}
+                          onChange={handleCardInputChange}
+                          onFocus={handleCardInputFocus}
+                          maxLength={4}
                           className="w-full px-4 py-3 bg-zinc-800 border border-white/5 rounded-xl text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500"
                         />
                       </div>
                       <div>
                         <label className="block text-sm font-bold mb-2 text-zinc-300">CVV</label>
                         <input
-                          type="text"
-                          placeholder="123"
-                          maxLength={3}
+                          type="password"
+                          name="cvc"
+                          placeholder="***"
+                          value={cardState.cvc}
+                          onChange={handleCardInputChange}
+                          onFocus={handleCardInputFocus}
+                          maxLength={4}
                           className="w-full px-4 py-3 bg-zinc-800 border border-white/5 rounded-xl text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500"
                         />
                       </div>
                     </div>
                   </div>
                 )}
+
+                {metodoPagamento === 'pix' && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-zinc-800/50 border border-white/5 rounded-2xl p-6 text-center space-y-4 mb-4">
+                <AnimatePresence>
+                  {metodoPagamento === 'pix' && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="bg-zinc-800/50 border border-white/5 rounded-2xl p-6 text-center space-y-4 mb-4 overflow-hidden">
+                    <p className="text-zinc-300 font-bold">Escaneie o QR Code para pagar via PIX</p>
+                    <div className="w-40 h-40 bg-white mx-auto rounded-xl p-2 shadow-lg flex items-center justify-center">
+                      <QrCode className="w-full h-full text-zinc-900" />
+                    </div>
+                    <p className="text-xs text-zinc-500">O pagamento será aprovado em instantes.</p>
+                  </motion.div>
+                )}
+                  )}
+                </AnimatePresence>
 
                 <div className="flex justify-between gap-4 mt-8">
                   <button
@@ -496,6 +607,7 @@ export function SeatSelection() {
               </div>
 
               {/* Resumo lado */}
+              <motion.div layout transition={appleSpring} className="bg-gradient-to-br from-orange-500/10 to-purple-500/10 border border-orange-500/20 rounded-3xl p-6 h-fit sticky top-6">
               <div className="bg-gradient-to-br from-orange-500/10 to-purple-500/10 border border-orange-500/20 rounded-3xl p-6 h-fit sticky top-6">
                 <h3 className="text-lg font-black mb-6 text-white">Resumo da Reserva</h3>
 
@@ -526,30 +638,40 @@ export function SeatSelection() {
                   </div>
                 </div>
 
+                <motion.div layout className="border-t border-white/5 pt-4 space-y-2 mb-4">
                 <div className="border-t border-white/5 pt-4 space-y-2 mb-4">
+                  <AnimatePresence>
                   {ingressos.inteira > 0 && (
-                    <div className="flex justify-between text-sm">
+                    <motion.div key="resumo-inteira" layout initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
+                    <motion.div key="resumo-inteira" initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
                       <span>Inteira ({ingressos.inteira})</span>
                       <span className="font-bold">R${(ingressos.inteira * sessao.preco_ingresso.inteira).toFixed(2)}</span>
-                    </div>
+                    </motion.div>
                   )}
                   {ingressos.meia > 0 && (
-                    <div className="flex justify-between text-sm">
+                    <motion.div key="resumo-meia" layout initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
+                    <motion.div key="resumo-meia" initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
                       <span>Meia ({ingressos.meia})</span>
                       <span className="font-bold">R${(ingressos.meia * sessao.preco_ingresso.meia).toFixed(2)}</span>
-                    </div>
+                    </motion.div>
                   )}
                   {ingressos.itau_promo > 0 && (
-                    <div className="flex justify-between text-sm">
+                    <motion.div key="resumo-itau_promo" layout initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
+                    <motion.div key="resumo-itau_promo" initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
                       <span>Promoção Itaú ({ingressos.itau_promo})</span>
                       <span className="font-bold">R${(ingressos.itau_promo * sessao.preco_ingresso.itau_promo).toFixed(2)}</span>
-                    </div>
+                    </motion.div>
                   )}
+                  </AnimatePresence>
+                </motion.div>
                 </div>
 
+                <motion.div layout className="border-t border-white/5 pt-4 flex justify-between items-center">
                 <div className="border-t border-white/5 pt-4 flex justify-between items-center">
                   <span className="font-black text-white">Total</span>
                   <span className="text-2xl font-black text-orange-400">R${calcularTotal().toFixed(2)}</span>
+                </motion.div>
+              </motion.div>
                 </div>
               </div>
             </div>
@@ -559,9 +681,8 @@ export function SeatSelection() {
         {/* ETAPA 4: SUCESSO */}
         {etapa === 'sucesso' && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-gradient-to-br from-emerald-500/10 to-green-500/10 border border-emerald-500/30 rounded-3xl p-12 text-center"
+            key="etapa-sucesso" variants={applePage} initial="hidden" animate="visible" exit="exit"
+            className="bg-gradient-to-br from-emerald-500/10 to-green-500/10 border border-emerald-500/30 rounded-3xl p-12 text-center origin-top"
           >
             <motion.div
               initial={{ scale: 0 }}
@@ -607,6 +728,7 @@ export function SeatSelection() {
             </div>
           </motion.div>
         )}
+        </AnimatePresence>
       </div>
     </div>
   );

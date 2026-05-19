@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "framer-motion": "^12.38.0"
+    "framer-motion": "^12.38.0",
+    "react-credit-cards-2": "^1.2.0"
   }
 }

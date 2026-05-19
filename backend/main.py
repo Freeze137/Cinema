@@ -67,6 +67,7 @@ class FilmeDB(Base):
     genero = Column(String)
     classificacao = Column(String)
     lote = Column(Integer, default=1)
+    elenco = Column(String, nullable=True)
     sessoes = relationship("SessaoDB", back_populates="filme")
 
 class SalaDB(Base):
@@ -321,6 +322,7 @@ async def listar_filmes(db: Session = Depends(get_db)):
             "genero": f.genero,
             "classificacao": f.classificacao,
             "lote": f.lote,
+            "elenco": f.elenco,
             "sessoes": [
                 {
                     "id": s.id,
@@ -354,6 +356,7 @@ async def filmes_por_data(data: str, db: Session = Depends(get_db)):
             "duracao": f.duracao,
             "genero": f.genero,
             "classificacao": f.classificacao,
+            "elenco": f.elenco,
             "sessoes": [
                 {
                     "id": s.id,
@@ -399,7 +402,8 @@ async def obter_sessao(sessao_id: int, db: Session = Depends(get_db)):
             "sinopse": sessao.filme.sinopse,
             "duracao": sessao.filme.duracao,
             "genero": sessao.filme.genero,
-            "classificacao": sessao.filme.classificacao
+            "classificacao": sessao.filme.classificacao,
+            "elenco": sessao.filme.elenco
         },
         "sala": {
             "numero": sessao.sala.numero,
@@ -596,22 +600,29 @@ def seed_database():
 
     if db.query(FilmeDB).count() == 0:
         filmes_config = [
-            ("Duna 2", "Épico de ficção científica", "166 min", "Ficção", "14", 1),
-            ("Oppenheimer", "Drama histórico", "180 min", "Drama", "12", 1),
-            ("Barbie", "Comédia fantasia", "114 min", "Comédia", "10", 2),
-            ("Killers of the Flower Moon", "Thriller", "150 min", "Thriller", "14", 2),
-            ("Insidious 5", "Horror", "107 min", "Horror", "14", 1),
-            ("Poor Things", "Ficção", "141 min", "Ficção", "16", 2),
+            ("Duna 2", "Épico de ficção científica", "166 min", "Ficção", "14", 1, "Timothée Chalamet, Zendaya"),
+            ("Oppenheimer", "Drama histórico", "180 min", "Drama", "12", 1, "Cillian Murphy, Emily Blunt"),
+            ("Barbie", "Comédia fantasia", "114 min", "Comédia", "10", 2, "Margot Robbie, Ryan Gosling"),
+            ("Killers of the Flower Moon", "Thriller", "150 min", "Thriller", "14", 2, "Leonardo DiCaprio, Lily Gladstone"),
+            ("Insidious 5", "Horror", "107 min", "Horror", "14", 1, "Patrick Wilson, Rose Byrne"),
+            ("Poor Things", "Ficção", "141 min", "Ficção", "16", 2, "Emma Stone, Mark Ruffalo"),
+            ("Deadpool & Wolverine", "Ação e Comédia", "127 min", "Ação", "18", 1, "Ryan Reynolds, Hugh Jackman"),
+            ("Divertida Mente 2", "Animação Família", "96 min", "Animação", "Livre", 1, "Amy Poehler, Maya Hawke"),
+            ("Coringa: Delírio a Dois", "Suspense Musical", "138 min", "Suspense", "16", 2, "Joaquin Phoenix, Lady Gaga"),
+            ("Gladiador 2", "Ação Épica", "150 min", "Ação", "16", 2, "Paul Mescal, Pedro Pascal"),
+            ("Venom 3", "Ação/Comédia", "120 min", "Ação", "16", 1, "Tom Hardy, Juno Temple"),
+            ("Nosferatu", "Horror/Suspense", "132 min", "Horror", "18", 2, "Bill Skarsgård, Lily-Rose Depp"),
         ]
 
-        for titulo, sinopse, duracao, genero, classificacao, lote in filmes_config:
+        for titulo, sinopse, duracao, genero, classificacao, lote, elenco in filmes_config:
             filme = FilmeDB(
                 titulo=titulo,
                 sinopse=sinopse,
                 duracao=duracao,
                 genero=genero,
                 classificacao=classificacao,
-                lote=lote
+                lote=lote,
+                elenco=elenco
             )
             db.add(filme)
         db.commit()

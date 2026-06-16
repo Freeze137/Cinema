@@ -511,15 +511,16 @@ export function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-            style={{ background: 'rgba(5,3,15,0.85)', backdropFilter: 'blur(16px)' }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
             onClick={() => setActiveModal(null)}
           >
+            {/* Entrada estilo Netflix: expande (scale 0.95→1) e sobe (y 32→0) com ease-out. */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.95, y: 32 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ duration: 0.2, type: 'tween', ease: 'easeOut' }}
+              exit={{ opacity: 0, scale: 0.95, y: 32 }}
+              transition={{ duration: 0.3, type: 'tween', ease: 'easeOut' }}
               className="relative w-full max-w-lg overflow-hidden rounded-3xl"
               style={{
                 background: 'linear-gradient(145deg, rgba(22,20,15,0.98) 0%, rgba(13,13,18,0.99) 100%)',

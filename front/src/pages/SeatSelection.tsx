@@ -7,6 +7,7 @@ import { ChevronLeft, MapPin, Clock, Check, AlertCircle, Loader2, QrCode } from 
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { toast } from '../components/toast';
 import { useLanguage } from '../contexts/languageContext';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import Cards, { type Focused } from 'react-credit-cards-2';
 import 'react-credit-cards-2/dist/es/styles-compiled.css';
 
@@ -139,10 +140,11 @@ export function SeatSelection() {
   };
 
   function calcularTotal() {
-    if (!sessao) return 0;
-    const totalInteira = ingressos.inteira * sessao.preco_ingresso.inteira;
-    const totalMeia = ingressos.meia * sessao.preco_ingresso.meia;
-    const totalItau = ingressos.itau_promo * sessao.preco_ingresso.itau_promo;
+    const precos = sessao?.preco_ingresso;
+    if (!precos) return 0;
+    const totalInteira = ingressos.inteira * (precos.inteira ?? 0);
+    const totalMeia = ingressos.meia * (precos.meia ?? 0);
+    const totalItau = ingressos.itau_promo * (precos.itau_promo ?? 0);
     return totalInteira + totalMeia + totalItau;
   }
 
@@ -210,7 +212,15 @@ export function SeatSelection() {
     );
   }
 
+  // Etapa segura para renderizar: nunca mostra ingressos/pagamento sem assentos.
+  const requerAssentos = (e: Etapa) => e === 'ingressos' || e === 'pagamento';
+  const etapaSegura: Etapa = requerAssentos(etapa) && assentosSelecionados.length === 0 ? 'assentos' : etapa;
+  // Só permite navegar para uma etapa cujos pré-requisitos foram atendidos.
+  const podeIr = (destino: Etapa) =>
+    destino === 'assentos' || (destino !== 'sucesso' && assentosSelecionados.length > 0);
+
   return (
+    <ErrorBoundary onReset={() => setEtapa('assentos')} resetLabel="Voltar para assentos">
     <div className="min-h-screen bg-[#0f0f13] text-zinc-100 p-6">
       <div className="max-w-6xl mx-auto">
         {/* HEADER */}
@@ -222,10 +232,10 @@ export function SeatSelection() {
             <ChevronLeft className="w-6 h-6" />
           </button>
           <div>
-            <h1 className="text-3xl font-black text-white">{sessao.filme.titulo}</h1>
+            <h1 className="text-3xl font-black text-white">{sessao.filme?.titulo ?? 'Sessão'}</h1>
             <div className="flex items-center gap-4 mt-2 text-sm text-zinc-400">
               <span className="flex items-center gap-1">
-                <MapPin className="w-4 h-4" /> Sala {sessao.sala.numero} <span className="bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ml-1 border border-orange-500/30 shadow-[0_0_10px_rgba(249,115,22,0.2)]">{sessao.sala.tipo}</span>
+                <MapPin className="w-4 h-4" /> Sala {sessao.sala?.numero ?? '—'} <span className="bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ml-1 border border-orange-500/30 shadow-[0_0_10px_rgba(249,115,22,0.2)]">{sessao.sala?.tipo ?? 'STD'}</span>
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="w-4 h-4" /> {sessao.horario}
@@ -241,9 +251,9 @@ export function SeatSelection() {
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 layout
-                onClick={() => e !== 'sucesso' && setEtapa(e)}
+                onClick={() => podeIr(e) && setEtapa(e)}
                 className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ${
-                  (['assentos', 'ingressos', 'pagamento', 'sucesso'].indexOf(etapa) >= idx)
+                  (['assentos', 'ingressos', 'pagamento', 'sucesso'].indexOf(etapaSegura) >= idx)
                     ? 'bg-orange-500 text-white'
                     : 'bg-zinc-800 text-zinc-600'
                 }`}
@@ -257,7 +267,7 @@ export function SeatSelection() {
 
         <AnimatePresence mode="wait">
         {/* ETAPA 1: ASSENTOS */}
-        {etapa === 'assentos' && (
+        {etapaSegura === 'assentos' && (
           <motion.div key="etapa-assentos" variants={applePage} initial="hidden" animate="visible" exit="exit" className="origin-top">
             <div className="bg-zinc-900 border border-white/5 rounded-3xl p-8 mb-8">
               <h2 className="text-2xl font-black mb-6 text-white">{t('seat.title')}</h2>
@@ -275,7 +285,7 @@ export function SeatSelection() {
                   <div className="grid gap-2 max-w-2xl mx-auto">
                     {Array.from({ length: 8 }).map((_, filIdx) => {
                       const fileira = String.fromCharCode(65 + filIdx);
-                      const assentosFileira = sessao.assentos.filter(a => a.fileira === fileira);
+                      const assentosFileira = (sessao.assentos ?? []).filter(a => a.fileira === fileira);
 
                       return (
                         <div key={fileira} className="flex items-center gap-2">
@@ -346,7 +356,7 @@ export function SeatSelection() {
                   </p>
                   <motion.div layout className="flex gap-2 flex-wrap mt-2">
                     <AnimatePresence>
-                    {sessao.assentos
+                    {(sessao.assentos ?? [])
                       .filter(a => assentosSelecionados.includes(a.id))
                       .map(a => (
                         <motion.span
@@ -393,16 +403,16 @@ export function SeatSelection() {
         )}
 
         {/* ETAPA 2: INGRESSOS */}
-        {etapa === 'ingressos' && (
+        {etapaSegura === 'ingressos' && (
           <motion.div key="etapa-ingressos" variants={applePage} initial="hidden" animate="visible" exit="exit" className="origin-top">
             <div className="bg-zinc-900 border border-white/5 rounded-3xl p-8 mb-8">
               <h2 className="text-2xl font-black mb-6 text-white">{t('tickets.title')}</h2>
 
               <div className="grid md:grid-cols-3 gap-6 mb-8">
                 {[
-                  { tipo: 'inteira', label: t('tickets.full'), preco: sessao.preco_ingresso.inteira },
-                  { tipo: 'meia', label: t('tickets.half'), preco: sessao.preco_ingresso.meia },
-                  { tipo: 'itau_promo', label: t('tickets.itau'), preco: sessao.preco_ingresso.itau_promo },
+                  { tipo: 'inteira', label: t('tickets.full'), preco: sessao.preco_ingresso?.inteira ?? 0 },
+                  { tipo: 'meia', label: t('tickets.half'), preco: sessao.preco_ingresso?.meia ?? 0 },
+                  { tipo: 'itau_promo', label: t('tickets.itau'), preco: sessao.preco_ingresso?.itau_promo ?? 0 },
                 ].map(ing => (
                   <div
                     key={ing.tipo}
@@ -474,7 +484,7 @@ export function SeatSelection() {
         )}
 
         {/* ETAPA 3: PAGAMENTO */}
-        {etapa === 'pagamento' && (
+        {etapaSegura === 'pagamento' && (
           <motion.div key="etapa-pagamento" variants={applePage} initial="hidden" animate="visible" exit="exit" className="origin-top">
             <div className="grid md:grid-cols-3 gap-8">
               {/* Resumo */}
@@ -612,7 +622,7 @@ export function SeatSelection() {
                 <div className="space-y-4 mb-6">
                   <div>
                     <p className="text-sm text-zinc-400">Filme</p>
-                    <p className="font-black text-white">{sessao.filme.titulo}</p>
+                    <p className="font-black text-white">{sessao.filme?.titulo ?? '—'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-zinc-400">Data e Hora</p>
@@ -620,12 +630,12 @@ export function SeatSelection() {
                   </div>
                   <div>
                     <p className="text-sm text-zinc-400">Sala</p>
-                    <p className="font-black text-white">Sala {sessao.sala.numero} ({sessao.sala.tipo})</p>
+                    <p className="font-black text-white">Sala {sessao.sala?.numero ?? '—'} ({sessao.sala?.tipo ?? 'STD'})</p>
                   </div>
                   <div>
                     <p className="text-sm text-zinc-400">Assentos</p>
                     <div className="flex gap-2 flex-wrap mt-1">
-                      {sessao.assentos
+                      {(sessao.assentos ?? [])
                         .filter(a => assentosSelecionados.includes(a.id))
                         .map(a => (
                           <span key={a.id} className="bg-orange-500/20 text-orange-300 px-2 py-1 rounded text-xs font-bold">
@@ -641,19 +651,19 @@ export function SeatSelection() {
                     {ingressos.inteira > 0 && (
                       <motion.div key="resumo-inteira" layout initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
                         <span>Inteira ({ingressos.inteira})</span>
-                        <span className="font-bold">R${(ingressos.inteira * sessao.preco_ingresso.inteira).toFixed(2)}</span>
+                        <span className="font-bold">R${(ingressos.inteira * (sessao.preco_ingresso?.inteira ?? 0)).toFixed(2)}</span>
                       </motion.div>
                     )}
                     {ingressos.meia > 0 && (
                       <motion.div key="resumo-meia" layout initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
                         <span>Meia ({ingressos.meia})</span>
-                        <span className="font-bold">R${(ingressos.meia * sessao.preco_ingresso.meia).toFixed(2)}</span>
+                        <span className="font-bold">R${(ingressos.meia * (sessao.preco_ingresso?.meia ?? 0)).toFixed(2)}</span>
                       </motion.div>
                     )}
                     {ingressos.itau_promo > 0 && (
                       <motion.div key="resumo-itau_promo" layout initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
                         <span>Promoção Itaú ({ingressos.itau_promo})</span>
-                        <span className="font-bold">R${(ingressos.itau_promo * sessao.preco_ingresso.itau_promo).toFixed(2)}</span>
+                        <span className="font-bold">R${(ingressos.itau_promo * (sessao.preco_ingresso?.itau_promo ?? 0)).toFixed(2)}</span>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -669,7 +679,7 @@ export function SeatSelection() {
         )}
 
         {/* ETAPA 4: SUCESSO */}
-        {etapa === 'sucesso' && (
+        {etapaSegura === 'sucesso' && (
           <motion.div
             key="etapa-sucesso" variants={applePage} initial="hidden" animate="visible" exit="exit"
             className="bg-gradient-to-br from-emerald-500/10 to-green-500/10 border border-emerald-500/30 rounded-3xl p-12 text-center origin-top"
@@ -688,12 +698,12 @@ export function SeatSelection() {
 
             <div className="bg-zinc-900 border border-white/5 rounded-2xl p-6 my-8 text-left max-w-md mx-auto">
               <p className="text-sm text-zinc-400 mb-2">Seu Ingresso</p>
-              <p className="text-2xl font-black text-white mb-4">{sessao.filme.titulo}</p>
+              <p className="text-2xl font-black text-white mb-4">{sessao.filme?.titulo ?? '—'}</p>
               <div className="space-y-2 text-sm">
                 <p><span className="text-zinc-400">Data:</span> <span className="font-bold">{sessao.data} às {sessao.horario}</span></p>
-                <p><span className="text-zinc-400">Sala:</span> <span className="font-bold">{sessao.sala.numero}</span></p>
+                <p><span className="text-zinc-400">Sala:</span> <span className="font-bold">{sessao.sala?.numero ?? '—'}</span></p>
                 <p><span className="text-zinc-400">Assentos:</span> <span className="font-bold">
-                  {sessao.assentos
+                  {(sessao.assentos ?? [])
                     .filter(a => assentosSelecionados.includes(a.id))
                     .map(a => `${a.fileira}${a.numero}`)
                     .join(', ')}
@@ -710,7 +720,7 @@ export function SeatSelection() {
                 {t('success.home')}
               </button>
               <button
-                onClick={() => toast(`Gerando PDF do ingresso de "${sessao.filme.titulo}" (mock — endpoint de download ainda não implementado)`)}
+                onClick={() => toast(`Gerando PDF do ingresso de "${sessao.filme?.titulo ?? 'sessão'}" (mock — endpoint de download ainda não implementado)`)}
                 className="px-8 py-3 border border-white/20 hover:border-orange-500 rounded-xl font-bold transition-all duration-150 ease-out active:scale-[0.98]"
               >
                 {t('success.download')}
@@ -721,5 +731,6 @@ export function SeatSelection() {
         </AnimatePresence>
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

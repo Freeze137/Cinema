@@ -1,11 +1,14 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { LanguageProvider } from './contexts/LanguageProvider';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { SeatSelection } from './pages/SeatSelection';
+import { Toaster } from './components/Toaster';
 
 export default function App() {
   return (
+    <LanguageProvider>
     <AuthProvider>
       {/* Estilos globais injetados para ocultar a scrollbar nativa mantendo o scroll ativo */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -25,8 +28,10 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/sessao/:id" element={<SeatSelection />} />
           </Routes>
+          <Toaster />
         </div>
       </Router>
     </AuthProvider>
+    </LanguageProvider>
   );
 }

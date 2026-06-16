@@ -1,6 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
+/* Design tokens do Movflx (handoff claude.ai/design) */
+@theme {
+  --color-accent: #F5C518;
+  --font-sans: "Poppins", system-ui, sans-serif;
+}
+
 body {
-  background-color: #0a0a0a;
-  color: rgb(244 244 245);
+  background-color: #0d0d12;
+  color: #eaeaea;
+  font-family: "Poppins", system-ui, sans-serif;
 }

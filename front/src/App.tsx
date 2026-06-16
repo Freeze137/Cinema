@@ -3,6 +3,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { SeatSelection } from './pages/SeatSelection';
+import { Toaster } from './components/Toaster';
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/sessao/:id" element={<SeatSelection />} />
           </Routes>
+          <Toaster />
         </div>
       </Router>
     </AuthProvider>

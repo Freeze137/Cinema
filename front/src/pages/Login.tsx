@@ -49,7 +49,7 @@ export function Login() {
             </div>
           </div>
 
-          <button type="submit" className="mt-4 w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3.5 rounded-lg transition-all transform active:scale-[0.98] shadow-lg shadow-red-600/20">
+          <button type="submit" className="mt-4 w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3.5 rounded-lg transition-all duration-150 ease-out transform active:scale-[0.98] shadow-lg shadow-red-600/20">
             Entrar na Sessão
           </button>
         </form>

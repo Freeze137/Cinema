@@ -5,6 +5,7 @@ import axios from 'axios';
 import api from '../services/api';
 import { ChevronLeft, MapPin, Clock, Check, AlertCircle, Loader2, QrCode } from 'lucide-react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import { toast } from '../components/toast';
 import Cards, { type Focused } from 'react-credit-cards-2';
 import 'react-credit-cards-2/dist/es/styles-compiled.css';
 
@@ -12,7 +13,7 @@ const appleSpring = { type: "spring" as const, stiffness: 400, damping: 30, mass
 const applePage: Variants = {
   hidden: { opacity: 0, y: 32, scale: 0.98 },
   visible: { opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 350, damping: 35, mass: 0.8 } },
-  exit: { opacity: 0, y: -16, scale: 0.98, transition: { duration: 0.25, ease: [0.32, 0.72, 0, 1] } }
+  exit: { opacity: 0, y: -16, scale: 0.98, transition: { duration: 0.18, ease: [0.32, 0.72, 0, 1] } }
 };
 
 interface Sessao {
@@ -707,8 +708,8 @@ export function SeatSelection() {
                 Voltar para Home
               </button>
               <button
-                onClick={() => {}}
-                className="px-8 py-3 border border-white/20 hover:border-orange-500 rounded-xl font-bold transition-all"
+                onClick={() => toast(`Gerando PDF do ingresso de "${sessao.filme.titulo}" (mock — endpoint de download ainda não implementado)`)}
+                className="px-8 py-3 border border-white/20 hover:border-orange-500 rounded-xl font-bold transition-all duration-150 ease-out active:scale-[0.98]"
               >
                 Baixar Ingresso
               </button>

@@ -1,1 +1,20 @@
+# Env / segredos
+.env
+.env.local
+front/.env
+front/.env.local
+
+# Banco de dados
+*.db
 backend/kinoplex.db
+backend/backend/kinoplex.db
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node / build
+node_modules/
+dist/
+*.tsbuildinfo

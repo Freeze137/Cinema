@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
+import axios from 'axios';
 import api from '../services/api';
 import { ChevronLeft, MapPin, Clock, Check, AlertCircle, Loader2, QrCode } from 'lucide-react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
@@ -64,7 +65,7 @@ export function SeatSelection() {
     meia: 0,
     itau_promo: 0,
   });
-  const [metodoPagamento, setMetodoPagamento] = useState('cartao');
+  const [metodoPagamento, setMetodoPagamento] = useState<'cartao' | 'pix'>('cartao');
   const [processando, setProcessando] = useState(false);
   const [mensagemSucesso, setMensagemSucesso] = useState('');
   const [erro, setErro] = useState('');
@@ -173,8 +174,9 @@ export function SeatSelection() {
 
       setMensagemSucesso(`Reserva confirmada! ID: ${response.data.reserva_id}`);
       setEtapa('sucesso');
-    } catch (error: any) {
-      setErro(error.response?.data?.detail || 'Erro ao confirmar reserva');
+    } catch (error) {
+      const detail = axios.isAxiosError(error) ? error.response?.data?.detail : undefined;
+      setErro(detail || 'Erro ao confirmar reserva');
     } finally {
       setProcessando(false);
     }
@@ -477,10 +479,10 @@ export function SeatSelection() {
                 <h2 className="text-2xl font-black mb-6 text-white">Método de Pagamento</h2>
 
                 <div className="space-y-4 mb-8">
-                  {[
+                  {([
                     { id: 'cartao', label: 'Cartão de Crédito', icon: '💳' },
                     { id: 'pix', label: 'PIX', icon: '📱' },
-                  ].map(met => (
+                  ] as const).map(met => (
                     <motion.button
                       key={met.id}
                       layout
@@ -512,7 +514,6 @@ export function SeatSelection() {
                         cvc={cardState.cvc}
                         name={cardState.name}
                       focused={cardState.focus || undefined}
-                      focused={cardState.focus || ""}
                         placeholders={{ name: 'SEU NOME AQUI' }}
                         locale={{ valid: 'Validade' }}
                       />
@@ -574,10 +575,7 @@ export function SeatSelection() {
                 )}
 
                 {metodoPagamento === 'pix' && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-zinc-800/50 border border-white/5 rounded-2xl p-6 text-center space-y-4 mb-4">
-                <AnimatePresence>
-                  {metodoPagamento === 'pix' && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="bg-zinc-800/50 border border-white/5 rounded-2xl p-6 text-center space-y-4 mb-4 overflow-hidden">
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-zinc-800/50 border border-white/5 rounded-2xl p-6 text-center space-y-4 mb-4 overflow-hidden">
                     <p className="text-zinc-300 font-bold">Escaneie o QR Code para pagar via PIX</p>
                     <div className="w-40 h-40 bg-white mx-auto rounded-xl p-2 shadow-lg flex items-center justify-center">
                       <QrCode className="w-full h-full text-zinc-900" />
@@ -585,8 +583,6 @@ export function SeatSelection() {
                     <p className="text-xs text-zinc-500">O pagamento será aprovado em instantes.</p>
                   </motion.div>
                 )}
-                  )}
-                </AnimatePresence>
 
                 <div className="flex justify-between gap-4 mt-8">
                   <button
@@ -608,7 +604,6 @@ export function SeatSelection() {
 
               {/* Resumo lado */}
               <motion.div layout transition={appleSpring} className="bg-gradient-to-br from-orange-500/10 to-purple-500/10 border border-orange-500/20 rounded-3xl p-6 h-fit sticky top-6">
-              <div className="bg-gradient-to-br from-orange-500/10 to-purple-500/10 border border-orange-500/20 rounded-3xl p-6 h-fit sticky top-6">
                 <h3 className="text-lg font-black mb-6 text-white">Resumo da Reserva</h3>
 
                 <div className="space-y-4 mb-6">
@@ -639,41 +634,33 @@ export function SeatSelection() {
                 </div>
 
                 <motion.div layout className="border-t border-white/5 pt-4 space-y-2 mb-4">
-                <div className="border-t border-white/5 pt-4 space-y-2 mb-4">
                   <AnimatePresence>
-                  {ingressos.inteira > 0 && (
-                    <motion.div key="resumo-inteira" layout initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
-                    <motion.div key="resumo-inteira" initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
-                      <span>Inteira ({ingressos.inteira})</span>
-                      <span className="font-bold">R${(ingressos.inteira * sessao.preco_ingresso.inteira).toFixed(2)}</span>
-                    </motion.div>
-                  )}
-                  {ingressos.meia > 0 && (
-                    <motion.div key="resumo-meia" layout initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
-                    <motion.div key="resumo-meia" initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
-                      <span>Meia ({ingressos.meia})</span>
-                      <span className="font-bold">R${(ingressos.meia * sessao.preco_ingresso.meia).toFixed(2)}</span>
-                    </motion.div>
-                  )}
-                  {ingressos.itau_promo > 0 && (
-                    <motion.div key="resumo-itau_promo" layout initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
-                    <motion.div key="resumo-itau_promo" initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
-                      <span>Promoção Itaú ({ingressos.itau_promo})</span>
-                      <span className="font-bold">R${(ingressos.itau_promo * sessao.preco_ingresso.itau_promo).toFixed(2)}</span>
-                    </motion.div>
-                  )}
+                    {ingressos.inteira > 0 && (
+                      <motion.div key="resumo-inteira" layout initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
+                        <span>Inteira ({ingressos.inteira})</span>
+                        <span className="font-bold">R${(ingressos.inteira * sessao.preco_ingresso.inteira).toFixed(2)}</span>
+                      </motion.div>
+                    )}
+                    {ingressos.meia > 0 && (
+                      <motion.div key="resumo-meia" layout initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
+                        <span>Meia ({ingressos.meia})</span>
+                        <span className="font-bold">R${(ingressos.meia * sessao.preco_ingresso.meia).toFixed(2)}</span>
+                      </motion.div>
+                    )}
+                    {ingressos.itau_promo > 0 && (
+                      <motion.div key="resumo-itau_promo" layout initial={{ opacity: 0, height: 0, y: -10 }} animate={{ opacity: 1, height: "auto", y: 0 }} exit={{ opacity: 0, height: 0, y: -10 }} transition={appleSpring} className="flex justify-between text-sm overflow-hidden">
+                        <span>Promoção Itaú ({ingressos.itau_promo})</span>
+                        <span className="font-bold">R${(ingressos.itau_promo * sessao.preco_ingresso.itau_promo).toFixed(2)}</span>
+                      </motion.div>
+                    )}
                   </AnimatePresence>
                 </motion.div>
-                </div>
 
                 <motion.div layout className="border-t border-white/5 pt-4 flex justify-between items-center">
-                <div className="border-t border-white/5 pt-4 flex justify-between items-center">
                   <span className="font-black text-white">Total</span>
                   <span className="text-2xl font-black text-orange-400">R${calcularTotal().toFixed(2)}</span>
                 </motion.div>
               </motion.div>
-                </div>
-              </div>
             </div>
           </motion.div>
         )}

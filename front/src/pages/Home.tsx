@@ -32,9 +32,16 @@ interface Reserva {
   data: string;
   horario: string;
   sala: string;
-  assento: string;
+  assentos: string[];
   data_reserva: string;
   ingressos: Array<{ tipo: string; valor: number }>;
+}
+
+interface CalendarSessao {
+  filme_id: number;
+  filme_titulo: string;
+  horario: string;
+  sala: string;
 }
 
 type ModalType = 'reservas' | 'calendario' | 'detalhes' | null;
@@ -72,7 +79,7 @@ export function Home() {
   const [selectedMovie, setSelectedMovie] = useState<Filme | null>(null);
   const [calendarViewDate, setCalendarViewDate] = useState<Date>(new Date());
   const [selectedCalDay, setSelectedCalDay] = useState<number>(new Date().getDate());
-  const [sessionesCalendarData, setSessionesCalendarData] = useState<Record<number, any[]>>({});
+  const [sessionesCalendarData, setSessionesCalendarData] = useState<Record<number, CalendarSessao[]>>({});
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -424,7 +431,7 @@ export function Home() {
                             <div className="flex-1 min-w-0">
                               <p className="text-white font-bold text-sm">{r.filme}</p>
                               <p className="text-zinc-500 text-xs mt-1 flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />Sala {r.sala} • Assento <span className="text-orange-400 font-bold">{r.assento}</span>
+                                <MapPin className="w-3 h-3" />Sala {r.sala} • {r.assentos.length > 1 ? 'Assentos' : 'Assento'} <span className="text-orange-400 font-bold">{r.assentos.join(', ')}</span>
                               </p>
                               <p className="text-zinc-600 text-xs mt-1">{r.data} às {r.horario}</p>
                               <div className="flex gap-1 mt-2 flex-wrap">

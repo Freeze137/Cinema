@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime, Enum as SQLEnum, Date, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime, Enum as SQLEnum, Date, Boolean, Table
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
 from sqlalchemy.exc import IntegrityError
 from jose import JWTError, jwt
@@ -103,18 +103,26 @@ class AssentoDB(Base):
     status = Column(SQLEnum(StatusAssento), default=StatusAssento.DISPONIVEL)
     sessao = relationship("SessaoDB", back_populates="assentos")
     sala = relationship("SalaDB", back_populates="assentos")
-    reserva = relationship("ReservaDB", back_populates="assento", uselist=False)
+
+# Junção reserva <-> assentos (1 reserva = N assentos).
+# assento_id único impede que o mesmo assento entre em duas reservas
+# (proteção de double-booking no nível do banco).
+reserva_assentos = Table(
+    "reserva_assentos",
+    Base.metadata,
+    Column("reserva_id", Integer, ForeignKey("reservas.id"), primary_key=True),
+    Column("assento_id", Integer, ForeignKey("assentos.id"), primary_key=True, unique=True),
+)
 
 class ReservaDB(Base):
     __tablename__ = "reservas"
     id = Column(Integer, primary_key=True, index=True)
     sessao_id = Column(Integer, ForeignKey("sessoes.id"), index=True)
-    assento_id = Column(Integer, ForeignKey("assentos.id"), unique=True)
     user_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
     ingressos = relationship("IngressoDB", back_populates="reserva")
     sessao = relationship("SessaoDB", back_populates="reservas")
-    assento = relationship("AssentoDB", back_populates="reserva")
+    assentos = relationship("AssentoDB", secondary=reserva_assentos, backref="reservas")
     usuario = relationship("UserDB", back_populates="reservas")
 
 class IngressoDB(Base):
@@ -257,9 +265,14 @@ def criar_assentos_para_sala(db: Session, sala: SalaDB, sessao: SessaoDB):
 
 # --- FASTAPI APP ---
 app = FastAPI(title="API Kinoplex Refatorada")
+origins = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173"
+).split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
 )
@@ -478,9 +491,9 @@ async def criar_reserva(
 
     nova_reserva = ReservaDB(
         sessao_id=reserva.sessao_id,
-        assento_id=assentos_db[0].id,
         user_id=current_user.id
     )
+    nova_reserva.assentos = assentos_db
     db.add(nova_reserva)
     db.flush()
 
@@ -507,7 +520,15 @@ async def criar_reserva(
         status=StatusPagamento.CONFIRMADO
     )
     db.add(pgt)
-    db.commit()
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Um ou mais assentos já foram reservados. Atualize e tente novamente."
+        )
 
     codigo_reserva = str(uuid.uuid4())[:8].upper()
 
@@ -537,7 +558,7 @@ async def listar_minhas_reservas(
             "data": r.sessao.data.isoformat(),
             "horario": r.sessao.horario,
             "sala": r.sessao.sala.numero,
-            "assento": f"{r.assento.fileira}{r.assento.numero}",
+            "assentos": [f"{a.fileira}{a.numero}" for a in r.assentos],
             "data_reserva": r.timestamp.strftime("%d/%m/%Y %H:%M"),
             "ingressos": [
                 {"tipo": ing.tipo.value, "valor": ing.valor}

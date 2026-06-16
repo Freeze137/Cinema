@@ -5,7 +5,7 @@ import api from '../services/api';
 import {
   Ticket, CalendarDays, Search, Globe, ChevronDown, ChevronLeft, ChevronRight,
   Play, Star, ThumbsUp, Calendar as CalendarIcon, Clock, MonitorPlay, DownloadCloud,
-  X, MapPin, CheckCircle,
+  X, MapPin, CheckCircle, Check,
 } from 'lucide-react';
 
 // Ícones sociais (removidos do lucide-react) — SVGs inline do design Movflx
@@ -20,6 +20,8 @@ const Instagram = ({ className }: { className?: string }) => (
 );
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { toast } from '../components/toast';
+import { useLanguage } from '../contexts/languageContext';
+import { LANGUAGES } from '../i18n/translations';
 
 interface Sessao {
   id: number;
@@ -105,7 +107,9 @@ export function Home() {
   const [activeNav, setActiveNav] = useState<NavId>('home');
   const [activeTab, setActiveTab] = useState<TabId>('tv');
   const [query, setQuery] = useState('');
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
   const { user } = useContext(AuthContext);
+  const { lang, setLang, t } = useLanguage();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -198,19 +202,19 @@ export function Home() {
   }
 
   const navItems: Array<{ id: NavId; label: string; icon?: React.ReactNode }> = [
-    { id: 'home', label: 'HOME' },
-    { id: 'movie', label: 'MOVIE' },
-    { id: 'reserva', label: 'RESERVA', icon: <Ticket className="w-[15px] h-[15px]" /> },
-    { id: 'programacao', label: 'PROGRAMAÇÃO', icon: <CalendarDays className="w-[15px] h-[15px]" /> },
-    { id: 'pricing', label: 'PRICING' },
-    { id: 'blog', label: 'BLOG' },
-    { id: 'contacts', label: 'CONTACTS' },
+    { id: 'home', label: t('nav.home') },
+    { id: 'movie', label: t('nav.movie') },
+    { id: 'reserva', label: t('nav.reserva'), icon: <Ticket className="w-[15px] h-[15px]" /> },
+    { id: 'programacao', label: t('nav.programacao'), icon: <CalendarDays className="w-[15px] h-[15px]" /> },
+    { id: 'pricing', label: t('nav.pricing') },
+    { id: 'blog', label: t('nav.blog') },
+    { id: 'contacts', label: t('nav.contacts') },
   ];
 
   const tabs: Array<{ id: TabId; label: string }> = [
-    { id: 'tv', label: 'TV Shows' },
-    { id: 'movies', label: 'Movies' },
-    { id: 'anime', label: 'Anime' },
+    { id: 'tv', label: t('tab.tv') },
+    { id: 'movies', label: t('tab.movies') },
+    { id: 'anime', label: t('tab.anime') },
   ];
 
   return (
@@ -220,11 +224,11 @@ export function Home() {
       <div className="bg-[#08080b] border-b border-white/5">
         <div className="max-w-[1280px] mx-auto px-8 py-[9px] flex items-center justify-between text-xs">
           <p className="text-[#9a9aa2] m-0">
-            Movflx One Month Free <span className="text-accent font-semibold">Subscription !</span>
+            {t('topbar.promo')} <span className="text-accent font-semibold">{t('topbar.promoAccent')}</span>
           </p>
           <div className="flex items-center gap-[18px] text-[#9a9aa2]">
-            <button onClick={() => toast('Sobre nós — página institucional (em breve)')} className="cursor-pointer transition-colors hover:text-accent">About Us</button>
-            <button onClick={() => toast('FAQS — central de ajuda (em breve)')} className="cursor-pointer transition-colors hover:text-accent">FAQS</button>
+            <button onClick={() => toast('Sobre nós — página institucional (em breve)')} className="cursor-pointer transition-colors hover:text-accent">{t('topbar.about')}</button>
+            <button onClick={() => toast('FAQS — central de ajuda (em breve)')} className="cursor-pointer transition-colors hover:text-accent">{t('topbar.faqs')}</button>
             <span className="w-px h-[13px] bg-white/12" />
             <div className="flex gap-[13px]">
               <button onClick={() => toast('Abrir Facebook do Movflx (mock)')} className="flex cursor-pointer transition-colors hover:text-accent"><Facebook className="w-[14px] h-[14px]" /></button>
@@ -274,21 +278,55 @@ export function Home() {
               <input
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Find Favorite Movie"
+                placeholder={t('nav.searchPlaceholder')}
                 className="bg-[#16161d] border border-white/[0.06] rounded-full py-2.5 pl-[18px] pr-10 text-[12.5px] text-[#e8e8e8] placeholder:text-[#7a7a84] w-[200px] outline-none transition-[width,border-color] duration-200 ease-out focus:w-[240px] focus:border-[rgba(245,197,24,0.45)]"
               />
               <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-accent flex items-center justify-center">
                 <Search className="w-[13px] h-[13px] text-[#0d0d12]" strokeWidth={2.4} />
               </span>
             </div>
-            <button onClick={() => toast('Seletor de idioma: PT-BR / EN (mock)')} className="hidden md:flex items-center gap-1.5 text-[#bdbdc4] text-[12.5px] font-semibold cursor-pointer transition-colors hover:text-accent">
-              <Globe className="w-[15px] h-[15px]" />EN<ChevronDown className="w-2.5 h-2.5" strokeWidth={2.4} />
-            </button>
+            {/* Seletor de idioma (i18n): dropdown PT/EN, mostra o ativo, sem reload */}
+            <div className="relative hidden md:block">
+              <button
+                onClick={() => setLangMenuOpen(o => !o)}
+                onBlur={() => setTimeout(() => setLangMenuOpen(false), 120)}
+                className="flex items-center gap-1.5 text-[#bdbdc4] text-[12.5px] font-semibold cursor-pointer transition-colors duration-150 ease-out hover:text-accent"
+              >
+                <Globe className="w-[15px] h-[15px]" />
+                {LANGUAGES.find(l => l.code === lang)?.label}
+                <ChevronDown className={`w-2.5 h-2.5 transition-transform duration-200 ease-out ${langMenuOpen ? 'rotate-180' : ''}`} strokeWidth={2.4} />
+              </button>
+              <AnimatePresence>
+                {langMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                    className="absolute right-0 top-[calc(100%+10px)] z-50 w-32 overflow-hidden rounded-xl border border-white/10 bg-[#14141a] shadow-[0_12px_30px_rgba(0,0,0,0.5)]"
+                  >
+                    {LANGUAGES.map(l => (
+                      <button
+                        key={l.code}
+                        onMouseDown={() => { setLang(l.code); setLangMenuOpen(false); }}
+                        className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[12.5px] font-semibold text-left transition-colors duration-150 ease-out hover:bg-white/5 ${
+                          lang === l.code ? 'text-accent' : 'text-[#bdbdc4]'
+                        }`}
+                      >
+                        <span className="text-sm leading-none">{l.flag}</span>
+                        {l.code === 'pt' ? 'Português' : 'English'}
+                        {lang === l.code && <Check className="w-3.5 h-3.5 ml-auto" />}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
             <button
               onClick={() => navigate('/login')}
               className="border-[1.5px] border-accent text-accent bg-transparent px-[22px] py-[9px] rounded-full text-[12.5px] font-bold tracking-[0.06em] cursor-pointer transition-all duration-300 hover:bg-accent hover:text-[#0d0d12] hover:shadow-[0_8px_22px_rgba(245,197,24,0.45)]"
             >
-              {user ? (user.nome ?? 'CONTA').toUpperCase() : 'SIGN IN'}
+              {user ? (user.nome ?? t('nav.account')).toUpperCase() : t('nav.signin')}
             </button>
           </div>
         </nav>
@@ -312,19 +350,19 @@ export function Home() {
           <motion.div initial="hidden" animate="visible" variants={stagger}>
             <motion.p variants={fadeUp} className="text-accent font-bold text-base m-0 mb-3.5">Movflx</motion.p>
             <motion.h1 variants={fadeUp} className="text-[44px] sm:text-[62px] leading-[1.06] font-extrabold tracking-[-0.02em] text-white m-0 mb-[26px]">
-              Unlimited <span className="text-accent">Movie</span>, TV<br />Shows, &amp; More.
+              {t('hero.titleA')}<span className="text-accent">{t('hero.titleAccent')}</span>{t('hero.titleB')}
             </motion.h1>
             <motion.div variants={fadeUp} className="flex items-center flex-wrap gap-3.5 mb-[38px]">
               <span className="bg-[#1c1c24] text-[#cfcfd6] text-[11px] font-bold px-2.5 py-[5px] rounded-[5px] tracking-[0.04em]">
                 {featuredMovie?.classificacao ?? 'PG 18'}
               </span>
               <span className="bg-[#1c1c24] text-[#cfcfd6] text-[11px] font-bold px-2.5 py-[5px] rounded-[5px]">HD</span>
-              <span className="text-[#bdbdc4] text-[13.5px] font-medium">{featuredMovie?.genero ?? 'Romance, Drama'}</span>
+              <span className="text-[#bdbdc4] text-[13.5px] font-medium">{featuredMovie?.genero ?? t('hero.genre')}</span>
               <span className="flex items-center gap-1.5 text-[#bdbdc4] text-[13.5px] font-medium">
                 <CalendarIcon className="w-3.5 h-3.5 text-accent" />{new Date().getFullYear()}
               </span>
               <span className="flex items-center gap-1.5 text-[#bdbdc4] text-[13.5px] font-medium">
-                <Clock className="w-3.5 h-3.5 text-accent" />{featuredMovie?.duracao ?? '128 min'}
+                <Clock className="w-3.5 h-3.5 text-accent" />{featuredMovie?.duracao ?? t('hero.duration')}
               </span>
             </motion.div>
             <motion.button
@@ -335,7 +373,7 @@ export function Home() {
               <span className="w-[54px] h-[54px] rounded-full border-[1.5px] border-accent flex items-center justify-center transition-all">
                 <Play className="w-4 h-4 fill-accent text-accent" />
               </span>
-              WATCH NOW
+              {t('hero.watch')}
             </motion.button>
           </motion.div>
 
@@ -365,8 +403,8 @@ export function Home() {
       <section className="max-w-[1280px] mx-auto px-8 pt-2 pb-20">
         <div className="flex items-end justify-between mb-[30px] flex-wrap gap-[18px]">
           <div>
-            <p className="text-accent text-xs font-bold tracking-[0.22em] uppercase m-0 mb-2">Online Streaming</p>
-            <h2 className="text-[32px] font-extrabold tracking-[-0.01em] text-white m-0">New Release Movies</h2>
+            <p className="text-accent text-xs font-bold tracking-[0.22em] uppercase m-0 mb-2">{t('releases.eyebrow')}</p>
+            <h2 className="text-[32px] font-extrabold tracking-[-0.01em] text-white m-0">{t('releases.title')}</h2>
             <span className="block w-12 h-[3px] bg-accent rounded-[3px] mt-3" />
           </div>
           <div className="flex items-center gap-2.5">
@@ -401,7 +439,7 @@ export function Home() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex justify-center py-[50px]">
-            <p className="text-[#666] text-[15px] font-medium m-0">Nenhum filme encontrado.</p>
+            <p className="text-[#666] text-[15px] font-medium m-0">{t('grid.empty')}</p>
           </div>
         ) : (
           <motion.div
@@ -437,12 +475,12 @@ export function Home() {
                       {[0, 1, 2, 3, 4].map(s => <Star key={s} className="w-3 h-3 fill-accent" />)}
                     </div>
                     <h3 className="text-white font-bold text-[15px] m-0 mb-[3px] truncate">{filme.titulo}</h3>
-                    <p className="text-[#8a8a92] text-[12.5px] m-0 mb-3.5">{filme.genero ?? 'Adventure'}</p>
+                    <p className="text-[#8a8a92] text-[12.5px] m-0 mb-3.5">{filme.genero ?? t('card.genre')}</p>
                   </div>
                   <div className="border-t border-white/5 px-3.5 py-[11px] flex items-center justify-center gap-3 text-[11.5px] text-[#9a9aa2] bg-[#101015]">
                     <span className="font-bold text-[#cfcfd6]">HD</span>
                     <span className="w-px h-[11px] bg-white/12" />
-                    <span>Português</span>
+                    <span>{t('card.lang')}</span>
                     <span className="w-px h-[11px] bg-white/12" />
                     <span className="flex items-center gap-1.5"><ThumbsUp className="w-[13px] h-[13px] fill-accent text-accent" />3.5</span>
                   </div>
@@ -457,7 +495,7 @@ export function Home() {
       <section className="bg-[#0a0a0e] border-t border-white/5">
         <div className="max-w-[1280px] mx-auto px-8 py-[74px] grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr] gap-16 items-center">
           <div className="relative bg-accent rounded-md p-[26px]">
-            <span className="absolute top-[18px] right-[18px] bg-[#0d0d12] text-white text-xs font-bold px-3 py-[5px] rounded-[5px]">Only $3.99</span>
+            <span className="absolute top-[18px] right-[18px] bg-[#0d0d12] text-white text-xs font-bold px-3 py-[5px] rounded-[5px]">{t('services.price')}</span>
             <div className="bg-white rounded aspect-square flex flex-col items-center justify-end p-[30px]">
               <div className="flex-1 flex items-center justify-center">
                 <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#0d0d12" strokeWidth="1.4">
@@ -466,18 +504,18 @@ export function Home() {
                   <path d="M11.4 12h1.2M2 11l2-2M22 11l-2-2" />
                 </svg>
               </div>
-              <p className="m-0 font-semibold text-[18px] text-[#0d0d12] self-start">HD 4K</p>
-              <p className="m-0 font-extrabold text-[36px] text-[#0d0d12] self-start tracking-[-0.02em]">Resolution!</p>
+              <p className="m-0 font-semibold text-[18px] text-[#0d0d12] self-start">{t('services.resLabel')}</p>
+              <p className="m-0 font-extrabold text-[36px] text-[#0d0d12] self-start tracking-[-0.02em]">{t('services.resTitle')}</p>
             </div>
           </div>
 
           <div>
             <p className="flex items-center gap-2.5 text-accent text-xs font-bold tracking-[0.22em] uppercase m-0 mb-3.5">
-              <span className="w-[22px] h-0.5 bg-accent" />Our Services
+              <span className="w-[22px] h-0.5 bg-accent" />{t('services.eyebrow')}
             </p>
-            <h2 className="text-[34px] font-extrabold leading-[1.15] text-white m-0 mb-[18px]">Download Your Shows<br />Watch Offline.</h2>
+            <h2 className="text-[34px] font-extrabold leading-[1.15] text-white m-0 mb-[18px] whitespace-pre-line">{t('services.title')}</h2>
             <p className="text-[#9a9aa2] text-sm leading-[1.7] max-w-[520px] m-0 mb-[30px]">
-              Assista onde e quando quiser. Baixe seus filmes e séries favoritos e aproveite a melhor qualidade mesmo sem conexão com a internet.
+              {t('services.desc')}
             </p>
             <div className="flex flex-col gap-5">
               <div className="flex items-start gap-4">
@@ -485,8 +523,8 @@ export function Home() {
                   <MonitorPlay className="w-5 h-5 text-accent" strokeWidth={1.7} />
                 </span>
                 <div>
-                  <h4 className="m-0 mb-[5px] text-white text-base font-bold">Enjoy on Your TV.</h4>
-                  <p className="m-0 text-[#9a9aa2] text-[13px] leading-[1.6] max-w-[480px]">Assista na smart TV, PlayStation, Xbox, Chromecast, Apple TV, Blu-ray players e muito mais.</p>
+                  <h4 className="m-0 mb-[5px] text-white text-base font-bold">{t('services.feature1.title')}</h4>
+                  <p className="m-0 text-[#9a9aa2] text-[13px] leading-[1.6] max-w-[480px]">{t('services.feature1.desc')}</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
@@ -494,8 +532,8 @@ export function Home() {
                   <DownloadCloud className="w-5 h-5 text-accent" strokeWidth={1.7} />
                 </span>
                 <div>
-                  <h4 className="m-0 mb-[5px] text-white text-base font-bold">Watch Everywhere.</h4>
-                  <p className="m-0 text-[#9a9aa2] text-[13px] leading-[1.6] max-w-[480px]">Transmita filmes e séries ilimitados no celular, tablet, notebook e TV sem pagar mais por isso.</p>
+                  <h4 className="m-0 mb-[5px] text-white text-base font-bold">{t('services.feature2.title')}</h4>
+                  <p className="m-0 text-[#9a9aa2] text-[13px] leading-[1.6] max-w-[480px]">{t('services.feature2.desc')}</p>
                 </div>
               </div>
             </div>
@@ -538,8 +576,8 @@ export function Home() {
                 <>
                   <div className="relative z-10 p-6 border-b border-white/5 flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">Minha Conta</p>
-                      <h2 className="text-2xl font-black text-white">Minhas Reservas</h2>
+                      <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">{t('modal.account')}</p>
+                      <h2 className="text-2xl font-black text-white">{t('modal.bookings')}</h2>
                     </div>
                     <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all hover:bg-white/10">
                       <X className="w-4 h-4" />
@@ -549,15 +587,15 @@ export function Home() {
                     {!user ? (
                       <div className="text-center py-12">
                         <Ticket className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-                        <p className="text-zinc-400 mb-2 font-semibold">Faça login para ver suas reservas</p>
+                        <p className="text-zinc-400 mb-2 font-semibold">{t('bookings.loginPrompt')}</p>
                         <button onClick={() => { setActiveModal(null); navigate('/login'); }} className="bg-accent text-[#0d0d12] px-6 py-2.5 rounded-lg font-bold text-sm hover:opacity-90 transition-all">
-                          Fazer Login
+                          {t('bookings.login')}
                         </button>
                       </div>
                     ) : reservas.length === 0 ? (
                       <div className="text-center py-12">
                         <Ticket className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-                        <p className="text-zinc-400 mb-2 font-semibold">Nenhuma reserva encontrada</p>
+                        <p className="text-zinc-400 mb-2 font-semibold">{t('bookings.empty')}</p>
                       </div>
                     ) : (
                       <motion.div initial="hidden" animate="visible" variants={stagger} className="flex flex-col gap-3">
@@ -569,7 +607,7 @@ export function Home() {
                             <div className="flex-1 min-w-0">
                               <p className="text-white font-bold text-sm">{r.filme}</p>
                               <p className="text-zinc-500 text-xs mt-1 flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />Sala {r.sala} • {r.assentos.length > 1 ? 'Assentos' : 'Assento'} <span className="text-accent font-bold">{r.assentos.join(', ')}</span>
+                                <MapPin className="w-3 h-3" />{t('common.room')} {r.sala} • {r.assentos.length > 1 ? t('common.seats') : t('common.seat')} <span className="text-accent font-bold">{r.assentos.join(', ')}</span>
                               </p>
                               <p className="text-zinc-600 text-xs mt-1">{r.data} às {r.horario}</p>
                               <div className="flex gap-1 mt-2 flex-wrap">
@@ -596,7 +634,7 @@ export function Home() {
                 <>
                   <div className="relative z-10 p-6 border-b border-white/5 flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">Programação</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">{t('modal.schedule')}</p>
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1))}
@@ -615,8 +653,8 @@ export function Home() {
                   </div>
                   <div className="relative z-10 p-6" style={{ overflowX: 'hidden' }}>
                     <div className="grid grid-cols-7 mb-2">
-                      {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
-                        <div key={d} className="text-center text-[10px] font-black text-zinc-600 uppercase tracking-wider py-2">{d}</div>
+                      {[0, 1, 2, 3, 4, 5, 6].map(d => (
+                        <div key={d} className="text-center text-[10px] font-black text-zinc-600 uppercase tracking-wider py-2">{t(`cal.${d}`)}</div>
                       ))}
                     </div>
                     <div className="grid grid-cols-7 gap-1">
@@ -660,14 +698,14 @@ export function Home() {
 
                     {(() => {
                       const sessoesDoDia = getSessionsForDay(selectedCalDay);
-                      const labelDia = selectedCalDay === today.getDate() ? 'Sessões de Hoje' : `Sessões do Dia ${selectedCalDay}`;
+                      const labelDia = selectedCalDay === today.getDate() ? t('schedule.today') : t('schedule.day', { day: selectedCalDay });
                       return (
                         <div className="mt-6 border-t border-white/5 pt-5">
                           <div className="flex items-center justify-between mb-3">
                             <h4 className="text-white font-bold">{labelDia}</h4>
                             {sessoesDoDia.length > 0 && (
                               <span className="text-[11px] font-bold text-accent bg-accent/10 border border-accent/30 px-2.5 py-1 rounded-full">
-                                {sessoesDoDia.length} {sessoesDoDia.length === 1 ? 'sessão' : 'sessões'}
+                                {sessoesDoDia.length} {sessoesDoDia.length === 1 ? t('schedule.session') : t('schedule.sessions')}
                               </span>
                             )}
                           </div>
@@ -699,7 +737,7 @@ export function Home() {
                                     <div className="min-w-0 flex-1">
                                       <p className="text-white font-bold text-sm truncate">{s.filme_titulo}</p>
                                       <p className="text-zinc-500 text-xs flex items-center gap-1 mt-0.5">
-                                        <MapPin className="w-3 h-3" />Sala {s.sala}
+                                        <MapPin className="w-3 h-3" />{t('common.room')} {s.sala}
                                       </p>
                                     </div>
                                     <Play className="w-4 h-4 text-zinc-600 shrink-0" />
@@ -712,7 +750,7 @@ export function Home() {
                                 initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                                 className="text-sm text-zinc-500 italic text-center py-6"
                               >
-                                Nenhuma sessão encontrada para esta data.
+                                {t('schedule.empty')}
                               </motion.p>
                             )}
                           </AnimatePresence>
@@ -728,7 +766,7 @@ export function Home() {
                 <>
                   <div className="relative z-10 p-6 border-b border-white/5 flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">Sobre o Filme</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">{t('modal.about')}</p>
                       <h2 className="text-2xl font-black text-white">{selectedMovie.titulo}</h2>
                     </div>
                     <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all hover:bg-white/10">
@@ -737,28 +775,28 @@ export function Home() {
                   </div>
                   <div className="relative z-10 p-6 max-h-[60vh] overflow-y-auto space-y-6">
                     <div>
-                      <h3 className="text-white font-bold text-lg mb-2">Sinopse</h3>
+                      <h3 className="text-white font-bold text-lg mb-2">{t('details.synopsis')}</h3>
                       <p className="text-zinc-300 text-sm leading-relaxed">{selectedMovie.sinopse}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-4 bg-white/5 p-4 rounded-xl border border-white/10">
                       <div>
-                        <h3 className="text-zinc-500 text-xs font-bold uppercase mb-1">Gênero</h3>
-                        <p className="text-zinc-200 text-sm font-medium">{selectedMovie.genero || 'Não informado'}</p>
+                        <h3 className="text-zinc-500 text-xs font-bold uppercase mb-1">{t('details.genre')}</h3>
+                        <p className="text-zinc-200 text-sm font-medium">{selectedMovie.genero || t('details.notInformed')}</p>
                       </div>
                       <div>
-                        <h3 className="text-zinc-500 text-xs font-bold uppercase mb-1">Duração</h3>
-                        <p className="text-zinc-200 text-sm font-medium flex items-center gap-1"><Clock className="w-3 h-3 text-accent" /> {selectedMovie.duracao || 'Não informado'}</p>
+                        <h3 className="text-zinc-500 text-xs font-bold uppercase mb-1">{t('details.duration')}</h3>
+                        <p className="text-zinc-200 text-sm font-medium flex items-center gap-1"><Clock className="w-3 h-3 text-accent" /> {selectedMovie.duracao || t('details.notInformed')}</p>
                       </div>
                       <div>
-                        <h3 className="text-zinc-500 text-xs font-bold uppercase mb-1">Classificação</h3>
+                        <h3 className="text-zinc-500 text-xs font-bold uppercase mb-1">{t('details.rating')}</h3>
                         <span className="inline-block border border-zinc-500 text-white px-2 py-0.5 rounded text-xs font-bold bg-black/40">
-                          {selectedMovie.classificacao || 'Livre'}
+                          {selectedMovie.classificacao || t('details.free')}
                         </span>
                       </div>
                       <div>
-                        <h3 className="text-zinc-500 text-xs font-bold uppercase mb-1">Elenco Principal</h3>
+                        <h3 className="text-zinc-500 text-xs font-bold uppercase mb-1">{t('details.cast')}</h3>
                         <p className="text-zinc-200 text-sm font-medium italic">
-                          {selectedMovie.elenco || 'Informação indisponível'}
+                          {selectedMovie.elenco || t('details.unavailable')}
                         </p>
                       </div>
                     </div>
@@ -767,7 +805,7 @@ export function Home() {
                         onClick={() => { setActiveModal(null); navigate(`/sessao/${selectedMovie.sessoes[0].id}`); }}
                         className="w-full bg-accent text-[#0d0d12] font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all"
                       >
-                        <Play className="w-4 h-4 fill-current" />Comprar Ingresso
+                        <Play className="w-4 h-4 fill-current" />{t('details.buy')}
                       </button>
                     )}
                   </div>

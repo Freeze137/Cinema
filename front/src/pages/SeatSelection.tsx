@@ -6,6 +6,7 @@ import api from '../services/api';
 import { ChevronLeft, MapPin, Clock, Check, AlertCircle, Loader2, QrCode } from 'lucide-react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { toast } from '../components/toast';
+import { useLanguage } from '../contexts/languageContext';
 import Cards, { type Focused } from 'react-credit-cards-2';
 import 'react-credit-cards-2/dist/es/styles-compiled.css';
 
@@ -55,6 +56,7 @@ export function SeatSelection() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
+  const { t } = useLanguage();
 
   const [sessao, setSessao] = useState<Sessao | null>(null);
   const [loading, setLoading] = useState(true);
@@ -258,14 +260,14 @@ export function SeatSelection() {
         {etapa === 'assentos' && (
           <motion.div key="etapa-assentos" variants={applePage} initial="hidden" animate="visible" exit="exit" className="origin-top">
             <div className="bg-zinc-900 border border-white/5 rounded-3xl p-8 mb-8">
-              <h2 className="text-2xl font-black mb-6 text-white">Escolha seus Assentos</h2>
+              <h2 className="text-2xl font-black mb-6 text-white">{t('seat.title')}</h2>
 
               <div className="flex justify-center mb-8">
                 <div className="w-full max-w-2xl">
                   {/* Tela do cinema */}
                   <div className="text-center mb-8">
                     <div className="inline-block px-8 py-2 bg-gradient-to-r from-red-600 to-red-700 rounded-full text-white font-black text-sm mb-4">
-                      TELA DO CINEMA
+                      {t('seat.screen')}
                     </div>
                   </div>
 
@@ -318,19 +320,19 @@ export function SeatSelection() {
                       <div className="w-6 h-6 bg-emerald-600 rounded-t-lg flex items-center justify-center">
                         <span className="text-[9px] text-white font-bold">A1</span>
                       </div>
-                      <span className="text-sm text-zinc-400">Disponível</span>
+                      <span className="text-sm text-zinc-400">{t('seat.available')}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 bg-orange-500 rounded-t-lg flex items-center justify-center">
                         <span className="text-[9px] text-white font-bold">A2</span>
                       </div>
-                      <span className="text-sm text-zinc-400">Selecionado</span>
+                      <span className="text-sm text-zinc-400">{t('seat.selected')}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 bg-zinc-700 opacity-60 rounded-t-lg flex items-center justify-center">
                         <span className="text-[9px] text-white font-bold">A3</span>
                       </div>
-                      <span className="text-sm text-zinc-400">Ocupado</span>
+                      <span className="text-sm text-zinc-400">{t('seat.occupied')}</span>
                     </div>
                   </div>
                 </div>
@@ -340,7 +342,7 @@ export function SeatSelection() {
               {assentosSelecionados.length > 0 && (
                 <div className="bg-orange-500/10 border border-orange-500/30 rounded-2xl p-4 mb-6">
                   <p className="text-orange-400 font-bold">
-                    Assentos selecionados ({assentosSelecionados.length}):
+                    {t('seat.selectedLabel')} ({assentosSelecionados.length}):
                   </p>
                   <motion.div layout className="flex gap-2 flex-wrap mt-2">
                     <AnimatePresence>
@@ -372,7 +374,7 @@ export function SeatSelection() {
                   onClick={() => navigate('/')}
                   className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl font-bold transition-all"
                 >
-                  Cancelar
+                  {t('seat.cancel')}
                 </button>
                 <button
                   onClick={handleAvancarParaIngressos}
@@ -383,7 +385,7 @@ export function SeatSelection() {
                       : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
                   }`}
                 >
-                  Próximo
+                  {t('seat.next')}
                 </button>
               </div>
             </div>
@@ -394,13 +396,13 @@ export function SeatSelection() {
         {etapa === 'ingressos' && (
           <motion.div key="etapa-ingressos" variants={applePage} initial="hidden" animate="visible" exit="exit" className="origin-top">
             <div className="bg-zinc-900 border border-white/5 rounded-3xl p-8 mb-8">
-              <h2 className="text-2xl font-black mb-6 text-white">Selecione os Ingressos</h2>
+              <h2 className="text-2xl font-black mb-6 text-white">{t('tickets.title')}</h2>
 
               <div className="grid md:grid-cols-3 gap-6 mb-8">
                 {[
-                  { tipo: 'inteira', label: 'Inteira', preco: sessao.preco_ingresso.inteira },
-                  { tipo: 'meia', label: 'Meia', preco: sessao.preco_ingresso.meia },
-                  { tipo: 'itau_promo', label: 'Promoção Itaú', preco: sessao.preco_ingresso.itau_promo },
+                  { tipo: 'inteira', label: t('tickets.full'), preco: sessao.preco_ingresso.inteira },
+                  { tipo: 'meia', label: t('tickets.half'), preco: sessao.preco_ingresso.meia },
+                  { tipo: 'itau_promo', label: t('tickets.itau'), preco: sessao.preco_ingresso.itau_promo },
                 ].map(ing => (
                   <div
                     key={ing.tipo}
@@ -453,7 +455,7 @@ export function SeatSelection() {
                   onClick={() => setEtapa('assentos')}
                   className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl font-bold transition-all"
                 >
-                  Voltar
+                  {t('tickets.back')}
                 </button>
                 <button
                   onClick={() => ingressos.inteira + ingressos.meia + ingressos.itau_promo === assentosSelecionados.length && setEtapa('pagamento')}
@@ -464,7 +466,7 @@ export function SeatSelection() {
                       : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
                   }`}
                 >
-                  Prosseguir para Pagamento
+                  {t('tickets.proceed')}
                 </button>
               </div>
             </div>
@@ -477,12 +479,12 @@ export function SeatSelection() {
             <div className="grid md:grid-cols-3 gap-8">
               {/* Resumo */}
               <div className="md:col-span-2 bg-zinc-900 border border-white/5 rounded-3xl p-8">
-                <h2 className="text-2xl font-black mb-6 text-white">Método de Pagamento</h2>
+                <h2 className="text-2xl font-black mb-6 text-white">{t('pay.title')}</h2>
 
                 <div className="space-y-4 mb-8">
                   {([
-                    { id: 'cartao', label: 'Cartão de Crédito', icon: '💳' },
-                    { id: 'pix', label: 'PIX', icon: '📱' },
+                    { id: 'cartao', label: t('pay.card'), icon: '💳' },
+                    { id: 'pix', label: t('pay.pix'), icon: '📱' },
                   ] as const).map(met => (
                     <motion.button
                       key={met.id}
@@ -598,14 +600,14 @@ export function SeatSelection() {
                     className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white rounded-xl font-bold transition-all flex items-center gap-2 disabled:opacity-50"
                   >
                     {processando && <Loader2 className="w-5 h-5 animate-spin" />}
-                    Confirmar Pagamento
+                    {t('pay.confirm')}
                   </button>
                 </div>
               </div>
 
               {/* Resumo lado */}
               <motion.div layout transition={appleSpring} className="bg-gradient-to-br from-orange-500/10 to-purple-500/10 border border-orange-500/20 rounded-3xl p-6 h-fit sticky top-6">
-                <h3 className="text-lg font-black mb-6 text-white">Resumo da Reserva</h3>
+                <h3 className="text-lg font-black mb-6 text-white">{t('pay.summary')}</h3>
 
                 <div className="space-y-4 mb-6">
                   <div>
@@ -658,7 +660,7 @@ export function SeatSelection() {
                 </motion.div>
 
                 <motion.div layout className="border-t border-white/5 pt-4 flex justify-between items-center">
-                  <span className="font-black text-white">Total</span>
+                  <span className="font-black text-white">{t('pay.total')}</span>
                   <span className="text-2xl font-black text-orange-400">R${calcularTotal().toFixed(2)}</span>
                 </motion.div>
               </motion.div>
@@ -681,7 +683,7 @@ export function SeatSelection() {
               <Check className="w-8 h-8 text-white" />
             </motion.div>
 
-            <h2 className="text-4xl font-black text-white mb-2">Reserva Confirmada!</h2>
+            <h2 className="text-4xl font-black text-white mb-2">{t('success.title')}</h2>
             <p className="text-zinc-400 mb-6">{mensagemSucesso}</p>
 
             <div className="bg-zinc-900 border border-white/5 rounded-2xl p-6 my-8 text-left max-w-md mx-auto">
@@ -705,13 +707,13 @@ export function SeatSelection() {
                 onClick={() => navigate('/')}
                 className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white rounded-xl font-bold transition-all"
               >
-                Voltar para Home
+                {t('success.home')}
               </button>
               <button
                 onClick={() => toast(`Gerando PDF do ingresso de "${sessao.filme.titulo}" (mock — endpoint de download ainda não implementado)`)}
                 className="px-8 py-3 border border-white/20 hover:border-orange-500 rounded-xl font-bold transition-all duration-150 ease-out active:scale-[0.98]"
               >
-                Baixar Ingresso
+                {t('success.download')}
               </button>
             </div>
           </motion.div>

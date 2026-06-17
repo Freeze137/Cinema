@@ -227,7 +227,7 @@ export function SeatSelection() {
         <div className="flex items-center gap-4 mb-8">
           <button
             onClick={() => navigate('/')}
-            className="p-2 hover:bg-zinc-900 rounded-lg transition-all"
+            className="p-2 hover:bg-zinc-900 rounded-lg transition-all duration-150 ease-out"
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
@@ -252,7 +252,7 @@ export function SeatSelection() {
                 whileTap={{ scale: 0.9 }}
                 layout
                 onClick={() => podeIr(e) && setEtapa(e)}
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors ${
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-colors duration-150 ease-out ${
                   (['assentos', 'ingressos', 'pagamento', 'sucesso'].indexOf(etapaSegura) >= idx)
                     ? 'bg-orange-500 text-white'
                     : 'bg-zinc-800 text-zinc-600'
@@ -304,7 +304,7 @@ export function SeatSelection() {
                                   whileHover={!isOcupado ? { scale: 1.15, y: -4 } : {}}
                                   whileTap={!isOcupado ? { scale: 0.85 } : {}}
                                   onClick={() => !isOcupado && toggleAssento(assento.id)}
-                                  className={`relative flex items-center justify-center transition-colors ${isGrande ? 'w-10 h-10 sm:w-12 sm:h-12' : 'w-8 h-8 sm:w-10 sm:h-10'} rounded-t-lg ${
+                                  className={`relative flex items-center justify-center transition-colors duration-150 ease-out ${isGrande ? 'w-10 h-10 sm:w-12 sm:h-12' : 'w-8 h-8 sm:w-10 sm:h-10'} rounded-t-lg ${
                                     isOcupado
                                       ? 'bg-zinc-700 opacity-60 cursor-not-allowed'
                                       : isSelected
@@ -382,14 +382,14 @@ export function SeatSelection() {
               <div className="flex justify-end gap-4">
                 <button
                   onClick={() => navigate('/')}
-                  className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl font-bold transition-all"
+                  className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl font-bold transition-all duration-150 ease-out"
                 >
                   {t('seat.cancel')}
                 </button>
                 <button
                   onClick={handleAvancarParaIngressos}
                   disabled={assentosSelecionados.length === 0}
-                  className={`px-8 py-3 rounded-xl font-bold transition-all flex items-center gap-2 ${
+                  className={`px-8 py-3 rounded-xl font-bold transition-all duration-150 ease-out flex items-center gap-2 ${
                     assentosSelecionados.length > 0
                       ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white'
                       : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
@@ -428,7 +428,7 @@ export function SeatSelection() {
                         onClick={() =>
                           handleIngressoChange(ing.tipo as 'inteira' | 'meia' | 'itau_promo', ingressos[ing.tipo as 'inteira' | 'meia' | 'itau_promo'] - 1)
                         }
-                        className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center transition-colors text-white"
+                        className="w-8 h-8 rounded-lg bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center transition-colors duration-150 ease-out text-white"
                       >
                         −
                       </motion.button>
@@ -444,7 +444,7 @@ export function SeatSelection() {
                             ingressos[ing.tipo as 'inteira' | 'meia' | 'itau_promo'] + 1
                           )
                         }
-                        className="w-8 h-8 rounded-lg bg-orange-600 hover:bg-orange-500 flex items-center justify-center transition-colors font-bold text-white"
+                        className="w-8 h-8 rounded-lg bg-orange-600 hover:bg-orange-500 flex items-center justify-center transition-colors duration-150 ease-out font-bold text-white"
                       >
                         +
                       </motion.button>
@@ -463,14 +463,14 @@ export function SeatSelection() {
               <div className="flex justify-between gap-4">
                 <button
                   onClick={() => setEtapa('assentos')}
-                  className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl font-bold transition-all"
+                  className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl font-bold transition-all duration-150 ease-out"
                 >
                   {t('tickets.back')}
                 </button>
                 <button
                   onClick={() => ingressos.inteira + ingressos.meia + ingressos.itau_promo === assentosSelecionados.length && setEtapa('pagamento')}
                   disabled={ingressos.inteira + ingressos.meia + ingressos.itau_promo !== assentosSelecionados.length}
-                  className={`px-8 py-3 rounded-xl font-bold transition-all ${
+                  className={`px-8 py-3 rounded-xl font-bold transition-all duration-150 ease-out ${
                     ingressos.inteira + ingressos.meia + ingressos.itau_promo === assentosSelecionados.length
                       ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white'
                       : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
@@ -503,7 +503,7 @@ export function SeatSelection() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setMetodoPagamento(met.id)}
-                      className={`w-full p-4 rounded-2xl border-2 transition-colors flex items-center gap-3 ${
+                      className={`w-full p-4 rounded-2xl border-2 transition-colors duration-150 ease-out flex items-center gap-3 ${
                         metodoPagamento === met.id
                           ? 'border-orange-500 bg-orange-500/10'
                           : 'border-white/5 bg-zinc-800 hover:border-orange-500/30'
@@ -600,14 +600,14 @@ export function SeatSelection() {
                 <div className="flex justify-between gap-4 mt-8">
                   <button
                     onClick={() => setEtapa('ingressos')}
-                    className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl font-bold transition-all"
+                    className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl font-bold transition-all duration-150 ease-out"
                   >
                     Voltar
                   </button>
                   <button
                     onClick={handleConfirmarReserva}
                     disabled={processando}
-                    className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white rounded-xl font-bold transition-all flex items-center gap-2 disabled:opacity-50"
+                    className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white rounded-xl font-bold transition-all duration-150 ease-out flex items-center gap-2 disabled:opacity-50"
                   >
                     {processando && <Loader2 className="w-5 h-5 animate-spin" />}
                     {t('pay.confirm')}
@@ -715,7 +715,7 @@ export function SeatSelection() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
                 onClick={() => navigate('/')}
-                className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white rounded-xl font-bold transition-all"
+                className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white rounded-xl font-bold transition-all duration-150 ease-out"
               >
                 {t('success.home')}
               </button>

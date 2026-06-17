@@ -39,7 +39,7 @@ export function Login() {
             <label className="block text-sm font-medium mb-2 text-zinc-400">{t('login.email')}</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full bg-zinc-950/50 border border-zinc-700 rounded-lg py-3 pl-11 pr-4 text-zinc-100 focus:outline-none focus:border-red-600 transition-colors" placeholder="seu@email.com" />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full bg-zinc-950/50 border border-zinc-700 rounded-lg py-3 pl-11 pr-4 text-zinc-100 focus:outline-none focus:border-red-600 transition-colors duration-150 ease-out" placeholder="seu@email.com" />
             </div>
           </div>
           
@@ -47,7 +47,7 @@ export function Login() {
             <label className="block text-sm font-medium mb-2 text-zinc-400">{t('login.password')}</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full bg-zinc-950/50 border border-zinc-700 rounded-lg py-3 pl-11 pr-4 text-zinc-100 focus:outline-none focus:border-red-600 transition-colors" placeholder="••••••••" />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full bg-zinc-950/50 border border-zinc-700 rounded-lg py-3 pl-11 pr-4 text-zinc-100 focus:outline-none focus:border-red-600 transition-colors duration-150 ease-out" placeholder="••••••••" />
             </div>
           </div>
 

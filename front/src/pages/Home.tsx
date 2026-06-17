@@ -227,13 +227,13 @@ export function Home() {
             {t('topbar.promo')} <span className="text-accent font-semibold">{t('topbar.promoAccent')}</span>
           </p>
           <div className="flex items-center gap-[18px] text-[#9a9aa2]">
-            <button onClick={() => toast('Sobre nós — página institucional (em breve)')} className="cursor-pointer transition-colors hover:text-accent">{t('topbar.about')}</button>
-            <button onClick={() => toast('FAQS — central de ajuda (em breve)')} className="cursor-pointer transition-colors hover:text-accent">{t('topbar.faqs')}</button>
+            <button onClick={() => toast('Sobre nós — página institucional (em breve)')} className="cursor-pointer transition-colors duration-150 ease-out hover:text-accent">{t('topbar.about')}</button>
+            <button onClick={() => toast('FAQS — central de ajuda (em breve)')} className="cursor-pointer transition-colors duration-150 ease-out hover:text-accent">{t('topbar.faqs')}</button>
             <span className="w-px h-[13px] bg-white/12" />
             <div className="flex gap-[13px]">
-              <button onClick={() => toast('Abrir Facebook do Movflx (mock)')} className="flex cursor-pointer transition-colors hover:text-accent"><Facebook className="w-[14px] h-[14px]" /></button>
-              <button onClick={() => toast('Abrir Twitter/X do Movflx (mock)')} className="flex cursor-pointer transition-colors hover:text-accent"><Twitter className="w-[14px] h-[14px]" /></button>
-              <button onClick={() => toast('Abrir Instagram do Movflx (mock)')} className="flex cursor-pointer transition-colors hover:text-accent"><Instagram className="w-[14px] h-[14px]" /></button>
+              <button onClick={() => toast('Abrir Facebook do Movflx (mock)')} className="flex cursor-pointer transition-colors duration-150 ease-out hover:text-accent"><Facebook className="w-[14px] h-[14px]" /></button>
+              <button onClick={() => toast('Abrir Twitter/X do Movflx (mock)')} className="flex cursor-pointer transition-colors duration-150 ease-out hover:text-accent"><Twitter className="w-[14px] h-[14px]" /></button>
+              <button onClick={() => toast('Abrir Instagram do Movflx (mock)')} className="flex cursor-pointer transition-colors duration-150 ease-out hover:text-accent"><Instagram className="w-[14px] h-[14px]" /></button>
             </div>
           </div>
         </div>
@@ -263,7 +263,7 @@ export function Home() {
               <button
                 key={item.id}
                 onClick={() => handleNav(item.id)}
-                className={`inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors hover:text-accent ${
+                className={`inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors duration-150 ease-out hover:text-accent ${
                   activeNav === item.id ? 'text-accent' : 'text-[#cfcfd6]'
                 }`}
               >
@@ -324,7 +324,7 @@ export function Home() {
             </div>
             <button
               onClick={() => navigate('/login')}
-              className="border-[1.5px] border-accent text-accent bg-transparent px-[22px] py-[9px] rounded-full text-[12.5px] font-bold tracking-[0.06em] cursor-pointer transition-all duration-300 hover:bg-accent hover:text-[#0d0d12] hover:shadow-[0_8px_22px_rgba(245,197,24,0.45)]"
+              className="border-[1.5px] border-accent text-accent bg-transparent px-[22px] py-[9px] rounded-full text-[12.5px] font-bold tracking-[0.06em] cursor-pointer transition-all duration-200 ease-out hover:bg-accent hover:text-[#0d0d12] hover:shadow-[0_8px_22px_rgba(245,197,24,0.45)]"
             >
               {user ? (user.nome ?? t('nav.account')).toUpperCase() : t('nav.signin')}
             </button>
@@ -368,9 +368,9 @@ export function Home() {
             <motion.button
               variants={fadeUp}
               onClick={() => featuredMovie?.sessoes?.[0] && navigate(`/sessao/${featuredMovie.sessoes[0].id}`)}
-              className="group inline-flex items-center gap-3.5 bg-transparent border-none text-white font-bold text-[13px] tracking-[0.08em] cursor-pointer p-0 transition-colors hover:text-accent"
+              className="group inline-flex items-center gap-3.5 bg-transparent border-none text-white font-bold text-[13px] tracking-[0.08em] cursor-pointer p-0 transition-colors duration-150 ease-out hover:text-accent"
             >
-              <span className="w-[54px] h-[54px] rounded-full border-[1.5px] border-accent flex items-center justify-center transition-all">
+              <span className="w-[54px] h-[54px] rounded-full border-[1.5px] border-accent flex items-center justify-center transition-all duration-200 ease-out">
                 <Play className="w-4 h-4 fill-accent text-accent" />
               </span>
               {t('hero.watch')}
@@ -579,7 +579,7 @@ export function Home() {
                       <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">{t('modal.account')}</p>
                       <h2 className="text-2xl font-black text-white">{t('modal.bookings')}</h2>
                     </div>
-                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all hover:bg-white/10">
+                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all duration-150 ease-out hover:bg-white/10">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -588,7 +588,7 @@ export function Home() {
                       <div className="text-center py-12">
                         <Ticket className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
                         <p className="text-zinc-400 mb-2 font-semibold">{t('bookings.loginPrompt')}</p>
-                        <button onClick={() => { setActiveModal(null); navigate('/login'); }} className="bg-accent text-[#0d0d12] px-6 py-2.5 rounded-lg font-bold text-sm hover:opacity-90 transition-all">
+                        <button onClick={() => { setActiveModal(null); navigate('/login'); }} className="bg-accent text-[#0d0d12] px-6 py-2.5 rounded-lg font-bold text-sm hover:opacity-90 transition-all duration-150 ease-out">
                           {t('bookings.login')}
                         </button>
                       </div>
@@ -600,7 +600,7 @@ export function Home() {
                     ) : (
                       <motion.div initial="hidden" animate="visible" variants={stagger} className="flex flex-col gap-3">
                         {reservas.map(r => (
-                          <motion.div key={r.id} variants={fadeUp} className="flex items-start gap-4 rounded-2xl p-4 transition-all hover:scale-[1.01]" style={{ background: 'rgba(245,197,24,0.05)', border: '1px solid rgba(245,197,24,0.15)' }}>
+                          <motion.div key={r.id} variants={fadeUp} className="flex items-start gap-4 rounded-2xl p-4 transition-all duration-150 ease-out hover:scale-[1.01]" style={{ background: 'rgba(245,197,24,0.05)', border: '1px solid rgba(245,197,24,0.15)' }}>
                             <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-1" style={{ background: 'rgba(245,197,24,0.15)', border: '1px solid rgba(245,197,24,0.25)' }}>
                               <Ticket className="w-5 h-5 text-accent" />
                             </div>
@@ -638,16 +638,16 @@ export function Home() {
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1))}
-                          className="p-1 hover:bg-white/10 rounded-lg transition-colors text-zinc-400 hover:text-white"
+                          className="p-1 hover:bg-white/10 rounded-lg transition-colors duration-150 ease-out text-zinc-400 hover:text-white"
                         ><ChevronLeft className="w-5 h-5" /></button>
                         <h2 className="text-xl sm:text-2xl font-black text-white capitalize min-w-[140px] text-center">{monthName}</h2>
                         <button
                           onClick={() => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1))}
-                          className="p-1 hover:bg-white/10 rounded-lg transition-colors text-zinc-400 hover:text-white"
+                          className="p-1 hover:bg-white/10 rounded-lg transition-colors duration-150 ease-out text-zinc-400 hover:text-white"
                         ><ChevronRight className="w-5 h-5" /></button>
                       </div>
                     </div>
-                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all hover:bg-white/10">
+                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all duration-150 ease-out hover:bg-white/10">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -769,7 +769,7 @@ export function Home() {
                       <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">{t('modal.about')}</p>
                       <h2 className="text-2xl font-black text-white">{selectedMovie.titulo}</h2>
                     </div>
-                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all hover:bg-white/10">
+                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all duration-150 ease-out hover:bg-white/10">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -803,7 +803,7 @@ export function Home() {
                     {selectedMovie.sessoes?.length > 0 && (
                       <button
                         onClick={() => { setActiveModal(null); navigate(`/sessao/${selectedMovie.sessoes[0].id}`); }}
-                        className="w-full bg-accent text-[#0d0d12] font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all"
+                        className="w-full bg-accent text-[#0d0d12] font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all duration-150 ease-out"
                       >
                         <Play className="w-4 h-4 fill-current" />{t('details.buy')}
                       </button>

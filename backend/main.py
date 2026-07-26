@@ -8,7 +8,7 @@ from fastapi import FastAPI, Depends, HTTPException, Request, WebSocket, WebSock
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, Column, Integer, String, Float, ForeignKey, DateTime, Enum as SQLEnum, Date, Boolean, Table
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
 from sqlalchemy.exc import IntegrityError
@@ -30,6 +30,46 @@ class TipoIngresso(str, enum.Enum):
     INTEIRA = "INTEIRA"
     MEIA = "MEIA"
     ITAU_PROMO = "ITAU_PROMO"
+
+class CategoriaMeia(str, enum.Enum):
+    """
+    Base legal ou convênio que dá direito à meia-entrada. Espelha as opções
+    oferecidas na bilheteria do Kinoplex.
+    """
+    SICOOB_MASTERCARD_BLACK = "SICOOB_MASTERCARD_BLACK"
+    SICOOB_VISA_INFINITE = "SICOOB_VISA_INFINITE"
+    SICOOB_PLATINUM = "SICOOB_PLATINUM"
+    SICOOB = "SICOOB"
+    ESTUDANTE = "ESTUDANTE"
+    SENIOR = "SENIOR"
+    PCD_AUTISTA = "PCD_AUTISTA"
+    ACOMPANHANTE_PCD = "ACOMPANHANTE_PCD"
+    PROFESSOR = "PROFESSOR"
+    OUTRAS_LEI = "OUTRAS_LEI"
+
+# Documento que o cliente precisa apresentar na entrada para cada categoria.
+COMPROVANTE_MEIA = {
+    CategoriaMeia.SICOOB_MASTERCARD_BLACK:
+        "Cartão Sicoob Mastercard Black em nome do titular e documento com foto",
+    CategoriaMeia.SICOOB_VISA_INFINITE:
+        "Cartão Sicoob Visa Infinite em nome do titular e documento com foto",
+    CategoriaMeia.SICOOB_PLATINUM:
+        "Cartão Sicoob Platinum em nome do titular e documento com foto",
+    CategoriaMeia.SICOOB:
+        "Cartão Sicoob em nome do titular e documento com foto",
+    CategoriaMeia.ESTUDANTE:
+        "Carteira de estudante (ID Estudantil) válida e documento com foto",
+    CategoriaMeia.SENIOR:
+        "Documento oficial com foto que comprove 60 anos ou mais",
+    CategoriaMeia.PCD_AUTISTA:
+        "Laudo médico, CIPTEA ou cartão de identificação da pessoa com deficiência e documento com foto",
+    CategoriaMeia.ACOMPANHANTE_PCD:
+        "Comprovação da deficiência da pessoa acompanhada (laudo ou CIPTEA), presente na sessão, e documento com foto do acompanhante",
+    CategoriaMeia.PROFESSOR:
+        "Carteira funcional, contracheque ou declaração da instituição de ensino e documento com foto",
+    CategoriaMeia.OUTRAS_LEI:
+        "Documento previsto na lei ou decreto que garante o benefício, junto de documento com foto",
+}
 
 class StatusAssento(str, enum.Enum):
     DISPONIVEL = "DISPONIVEL"
@@ -131,6 +171,8 @@ class IngressoDB(Base):
     reserva_id = Column(Integer, ForeignKey("reservas.id"), index=True)
     tipo = Column(SQLEnum(TipoIngresso))
     valor = Column(Float)
+    # Só preenchido em ingressos MEIA: qual benefício justifica o desconto.
+    categoria_meia = Column(SQLEnum(CategoriaMeia), nullable=True)
     data_emissao = Column(DateTime, default=datetime.utcnow)
     reserva = relationship("ReservaDB", back_populates="ingressos")
 
@@ -140,6 +182,12 @@ class PagamentoDB(Base):
     reserva_id = Column(Integer, ForeignKey("reservas.id"), index=True)
     metodo = Column(String)
     valor_total = Column(Float)
+    # Parcelamento: a taxa é gravada como estava na compra, para que mudanças
+    # futuras na regra não reescrevam o histórico.
+    parcelas = Column(Integer, default=1, nullable=False, server_default="1")
+    valor_parcela = Column(Float)
+    valor_total_com_juros = Column(Float)
+    taxa_juros_mensal = Column(Float, default=0.0)
     status = Column(SQLEnum(StatusPagamento), default=StatusPagamento.PENDENTE)
     timestamp = Column(DateTime, default=datetime.utcnow)
 
@@ -200,10 +248,15 @@ class AssentoResponse(BaseModel):
 class IngressoCreate(BaseModel):
     tipo: str
     quantidade: int
+    # Obrigatório quando tipo == MEIA: um dos valores de CategoriaMeia.
+    categoria_meia: Optional[str] = None
 
 class PagamentoCreate(BaseModel):
     metodo: str
     ingressos: List[IngressoCreate]
+    # Só o número de parcelas vem do cliente; juros e valores são calculados
+    # no servidor. Nenhum dado de cartão (número, CVV, validade) trafega aqui.
+    parcelas: int = Field(default=1, ge=1, le=12)
 
 class ReservaCreate(BaseModel):
     sessao_id: int
@@ -218,6 +271,17 @@ class SessaoResponse(BaseModel):
     preco_base: float
 
 # --- LOGIC FUNCTIONS ---
+# Regras de parcelamento no crédito.
+MAX_PARCELAS = 12
+PARCELAS_SEM_JUROS = 3          # até 3x sem juros, qualquer valor
+TAXA_JUROS_MENSAL = 0.0299      # a partir da 4ª parcela
+
+# Dados do recebedor no BR Code. Chave fictícia: projeto de estudo, sem PSP real.
+PIX_CHAVE = os.getenv("PIX_CHAVE", "pagamentos@kinoplex.com.br")
+PIX_RECEBEDOR = os.getenv("PIX_RECEBEDOR", "KINOPLEX CINEMAS")
+PIX_CIDADE = os.getenv("PIX_CIDADE", "SAO PAULO")
+PIX_EXPIRACAO_SEGUNDOS = 15 * 60
+
 def calcular_preco_sala(preco_base: float, tipo_sala: TipoSala) -> float:
     if tipo_sala == TipoSala.STANDARD:
         return preco_base
@@ -235,6 +299,143 @@ def calcular_preco_ingresso(preco_sala: float, tipo_ingresso: TipoIngresso) -> f
     elif tipo_ingresso == TipoIngresso.ITAU_PROMO:
         return preco_sala * 0.80
     return preco_sala
+
+def calcular_parcelamento(valor_total: float, parcelas: int) -> Dict:
+    """
+    Calcula o parcelamento do crédito. Até PARCELAS_SEM_JUROS o valor é dividido
+    sem acréscimo, independente do preço. Acima disso aplica-se a Tabela Price:
+
+        PMT = PV * i / (1 - (1 + i)^-n)
+
+    As parcelas são arredondadas ao centavo e a sobra vai para a primeira, de
+    modo que a soma das parcelas sempre fecha com o total cobrado.
+    """
+    if parcelas < 1 or parcelas > MAX_PARCELAS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Parcelamento deve ser entre 1 e {MAX_PARCELAS} vezes"
+        )
+
+    tem_juros = parcelas > PARCELAS_SEM_JUROS
+    taxa = TAXA_JUROS_MENSAL if tem_juros else 0.0
+
+    if tem_juros:
+        fator = taxa / (1 - (1 + taxa) ** -parcelas)
+        parcela_bruta = valor_total * fator
+    else:
+        parcela_bruta = valor_total / parcelas
+
+    # Centavos: distribui a diferença de arredondamento na primeira parcela.
+    parcela_centavos = round(parcela_bruta * 100)
+    total_centavos = parcela_centavos * parcelas
+    primeira_centavos = parcela_centavos
+
+    if not tem_juros:
+        total_centavos = round(valor_total * 100)
+        primeira_centavos = total_centavos - parcela_centavos * (parcelas - 1)
+
+    return {
+        "parcelas": parcelas,
+        "valor_parcela": parcela_centavos / 100,
+        "valor_primeira_parcela": primeira_centavos / 100,
+        "valor_total_com_juros": total_centavos / 100,
+        "taxa_juros_mensal": taxa,
+        "tem_juros": tem_juros,
+    }
+
+def formatar_brl(valor: float) -> str:
+    """Formata em Real com separadores pt-BR: 1234.5 -> 'R$ 1.234,50'."""
+    inteiro, centavos = f"{valor:.2f}".split(".")
+    milhares = f"{int(inteiro):,}".replace(",", ".")
+    return f"R$ {milhares},{centavos}"
+
+def montar_mensagem_pagamento(metodo: str, valor_total: float, parcelamento: Dict, nome_usuario: str) -> Dict:
+    """
+    Monta a confirmação exibida ao cliente, específica por meio de pagamento.
+    O texto sai do servidor porque é o mesmo que vale para comprovante e
+    histórico — o frontend só acrescenta bandeira e últimos dígitos, que ele
+    conhece e que não trafegam até aqui.
+    """
+    primeiro_nome = (nome_usuario or "").strip().split(" ")[0] or "Cinéfilo"
+    parcelas = parcelamento["parcelas"]
+    cobrado = formatar_brl(parcelamento["valor_total_com_juros"])
+
+    if metodo.lower() == "pix":
+        return {
+            "titulo": f"PIX confirmado, {primeiro_nome}!",
+            "resumo": f"Recebemos {cobrado} à vista.",
+            "detalhe": "Compensação instantânea — não há parcelas nem taxas. "
+                       "O comprovante já está disponível no seu histórico de reservas.",
+            "selo": "PAGO À VISTA",
+        }
+
+    # Quando o total não divide exato, a primeira parcela absorve os centavos.
+    primeira = parcelamento["valor_primeira_parcela"]
+    ajuste_primeira = (
+        f" (a 1ª sai por {formatar_brl(primeira)}, para fechar o total ao centavo)"
+        if abs(primeira - parcelamento["valor_parcela"]) >= 0.005 else ""
+    )
+
+    if parcelas == 1:
+        selo = "CRÉDITO À VISTA"
+        resumo = f"Cobrança única de {cobrado} no crédito."
+        detalhe = "O valor entra na próxima fatura, identificado como KINOPLEX*CINEMA."
+    elif not parcelamento["tem_juros"]:
+        selo = "SEM JUROS"
+        resumo = f"{parcelas}x de {formatar_brl(parcelamento['valor_parcela'])} sem juros."
+        detalhe = (f"Total de {cobrado}, sem nenhum acréscimo{ajuste_primeira}. "
+                   f"A primeira parcela entra na próxima fatura, como KINOPLEX*CINEMA.")
+    else:
+        juros_pct = f"{parcelamento['taxa_juros_mensal'] * 100:.2f}".replace(".", ",")
+        acrescimo = formatar_brl(parcelamento["valor_total_com_juros"] - valor_total)
+        selo = "PARCELADO COM JUROS"
+        resumo = f"{parcelas}x de {formatar_brl(parcelamento['valor_parcela'])} com juros."
+        detalhe = (f"Juros de {juros_pct}% ao mês somam {acrescimo} aos "
+                   f"{formatar_brl(valor_total)} dos ingressos, totalizando {cobrado}"
+                   f"{ajuste_primeira}. Na fatura, aparece como KINOPLEX*CINEMA.")
+
+    return {
+        "titulo": f"Pagamento aprovado, {primeiro_nome}!",
+        "resumo": resumo,
+        "detalhe": detalhe,
+        "selo": selo,
+    }
+
+def _emv(campo: str, valor: str) -> str:
+    """Codifica um campo no formato EMV do BR Code: ID + tamanho(2) + valor."""
+    return f"{campo}{len(valor):02d}{valor}"
+
+def _crc16_ccitt(payload: str) -> str:
+    """CRC-16/CCITT-FALSE (polinômio 0x1021, inicial 0xFFFF), exigido pelo BR Code."""
+    crc = 0xFFFF
+    for byte in payload.encode("utf-8"):
+        crc ^= byte << 8
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x1021) & 0xFFFF if crc & 0x8000 else (crc << 1) & 0xFFFF
+    return f"{crc:04X}"
+
+def gerar_payload_pix(valor: float, txid: str) -> str:
+    """
+    Monta o payload PIX copia-e-cola (BR Code / EMV-QRCPS). A chave é de
+    demonstração — trocar por uma chave real ao integrar com um PSP.
+    """
+    # Campo 26: conta do recebedor (GUI fixa do Banco Central + chave).
+    conta = _emv("00", "br.gov.bcb.pix") + _emv("01", PIX_CHAVE)
+
+    payload = (
+        _emv("00", "01")                     # formato do payload
+        + _emv("01", "12")                   # uso único (valor e txid fixos)
+        + _emv("26", conta)
+        + _emv("52", "0000")                 # MCC não informado
+        + _emv("53", "986")                  # BRL
+        + _emv("54", f"{valor:.2f}")
+        + _emv("58", "BR")
+        + _emv("59", PIX_RECEBEDOR[:25])
+        + _emv("60", PIX_CIDADE[:15])
+        + _emv("62", _emv("05", txid[:25]))  # identificador da cobrança
+        + "6304"                             # cabeçalho do CRC
+    )
+    return payload + _crc16_ccitt(payload)
 
 def get_lote_filmes(hora_atual: datetime = None) -> int:
     if hora_atual is None:
@@ -462,6 +663,52 @@ async def listar_assentos(sessao_id: int, db: Session = Depends(get_db)):
         ]
     }
 
+class PixCobrancaCreate(BaseModel):
+    sessao_id: int
+    ingressos: List[IngressoCreate]
+
+# --- PIX ROUTES ---
+@app.post("/api/pix/cobranca")
+async def gerar_cobranca_pix(
+    cobranca: PixCobrancaCreate,
+    db: Session = Depends(get_db),
+    current_user: UserDB = Depends(get_current_user)
+):
+    """
+    Gera o copia-e-cola do PIX para a compra em andamento. O valor é
+    recalculado aqui a partir da sessão e dos ingressos — o cliente não
+    escolhe quanto vai pagar.
+    """
+    sessao = db.query(SessaoDB).filter(SessaoDB.id == cobranca.sessao_id).first()
+    if not sessao:
+        raise HTTPException(status_code=404, detail="Sessão não encontrada")
+
+    if not cobranca.ingressos or sum(i.quantidade for i in cobranca.ingressos) < 1:
+        raise HTTPException(status_code=400, detail="Selecione ao menos um ingresso")
+
+    preco_sala = calcular_preco_sala(sessao.preco_base, sessao.sala.tipo)
+    valor_total = 0.0
+    for item in cobranca.ingressos:
+        try:
+            tipo_ingresso = TipoIngresso[item.tipo]
+        except KeyError:
+            raise HTTPException(status_code=400, detail=f"Tipo de ingresso inválido: {item.tipo}")
+        valor_total += calcular_preco_ingresso(preco_sala, tipo_ingresso) * item.quantidade
+
+    valor_total = round(valor_total, 2)
+    txid = uuid.uuid4().hex[:25].upper()
+    expira_em = datetime.utcnow() + timedelta(seconds=PIX_EXPIRACAO_SEGUNDOS)
+
+    return {
+        "txid": txid,
+        "valor": valor_total,
+        "payload": gerar_payload_pix(valor_total, txid),
+        "recebedor": PIX_RECEBEDOR,
+        "chave": PIX_CHAVE,
+        "expira_em": expira_em.isoformat() + "Z",
+        "expira_em_segundos": PIX_EXPIRACAO_SEGUNDOS,
+    }
+
 # --- RESERVA ROUTES ---
 @app.post("/api/reservas")
 async def criar_reserva(
@@ -497,15 +744,37 @@ async def criar_reserva(
     db.add(nova_reserva)
     db.flush()
 
+    categorias_meia = []
     for pg in pagamento.ingressos:
         tipo_ingresso = TipoIngresso[pg.tipo]
         preco = calcular_preco_ingresso(preco_sala, tipo_ingresso)
+
+        # Meia exige a categoria do benefício — é ela que define o documento
+        # a ser conferido na entrada da sala.
+        categoria = None
+        if tipo_ingresso == TipoIngresso.MEIA:
+            if not pg.categoria_meia:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Informe a categoria da meia-entrada: "
+                           + ", ".join(c.value for c in CategoriaMeia)
+                )
+            try:
+                categoria = CategoriaMeia[pg.categoria_meia.upper()]
+            except KeyError:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Categoria de meia-entrada inválida: {pg.categoria_meia}"
+                )
+            if categoria not in categorias_meia:
+                categorias_meia.append(categoria)
 
         for _ in range(pg.quantidade):
             ingresso = IngressoDB(
                 reserva_id=nova_reserva.id,
                 tipo=tipo_ingresso,
-                valor=preco
+                valor=preco,
+                categoria_meia=categoria
             )
             db.add(ingresso)
             valor_total += preco
@@ -513,10 +782,20 @@ async def criar_reserva(
     for assento in assentos_db:
         assento.status = StatusAssento.OCUPADO
 
+    # PIX é sempre à vista; parcelamento só faz sentido no crédito.
+    if pagamento.metodo.lower() == "pix" and pagamento.parcelas > 1:
+        raise HTTPException(status_code=400, detail="PIX não permite parcelamento")
+
+    parcelamento = calcular_parcelamento(valor_total, pagamento.parcelas)
+
     pgt = PagamentoDB(
         reserva_id=nova_reserva.id,
         metodo=pagamento.metodo,
         valor_total=valor_total,
+        parcelas=parcelamento["parcelas"],
+        valor_parcela=parcelamento["valor_parcela"],
+        valor_total_com_juros=parcelamento["valor_total_com_juros"],
+        taxa_juros_mensal=parcelamento["taxa_juros_mensal"],
         status=StatusPagamento.CONFIRMADO
     )
     db.add(pgt)
@@ -536,11 +815,22 @@ async def criar_reserva(
         "status": "sucesso",
         "mensagem": "Reserva confirmada!",
         "reserva_id": codigo_reserva,
+        # Id real no banco — o front usa para destacar a reserva no histórico.
+        "reserva_numero": nova_reserva.id,
         "detalhes": {
             "assentos": [f"{a.fileira}{a.numero}" for a in assentos_db],
             "ingressos_total": sum(ing.quantidade for ing in pagamento.ingressos),
             "valor_total": valor_total,
-            "metodo_pagamento": pagamento.metodo
+            "metodo_pagamento": pagamento.metodo,
+            "parcelamento": parcelamento,
+            # Quando há meia, o cliente precisa comprovar o benefício na entrada.
+            "meia_entrada": [
+                {"categoria": c.value, "comprovante": COMPROVANTE_MEIA[c]}
+                for c in categorias_meia
+            ],
+            "confirmacao": montar_mensagem_pagamento(
+                pagamento.metodo, valor_total, parcelamento, current_user.nome
+            )
         }
     }
 
@@ -551,9 +841,24 @@ async def listar_minhas_reservas(
 ):
     reservas = db.query(ReservaDB).filter(ReservaDB.user_id == current_user.id).all()
 
+    def resumo_pagamento(reserva: ReservaDB) -> Optional[Dict]:
+        pgt = db.query(PagamentoDB).filter(PagamentoDB.reserva_id == reserva.id).first()
+        if not pgt:
+            return None
+        return {
+            "metodo": pgt.metodo,
+            "valor_total": pgt.valor_total,
+            "parcelas": pgt.parcelas or 1,
+            "valor_parcela": pgt.valor_parcela,
+            "valor_total_com_juros": pgt.valor_total_com_juros,
+            "taxa_juros_mensal": pgt.taxa_juros_mensal or 0.0,
+            "status": pgt.status.value if pgt.status else None,
+        }
+
     return [
         {
             "id": r.id,
+            "pagamento": resumo_pagamento(r),
             "filme": r.sessao.filme.titulo,
             "data": r.sessao.data.isoformat(),
             "horario": r.sessao.horario,
@@ -561,7 +866,12 @@ async def listar_minhas_reservas(
             "assentos": [f"{a.fileira}{a.numero}" for a in r.assentos],
             "data_reserva": r.timestamp.strftime("%d/%m/%Y %H:%M"),
             "ingressos": [
-                {"tipo": ing.tipo.value, "valor": ing.valor}
+                {
+                    "tipo": ing.tipo.value,
+                    "valor": ing.valor,
+                    "categoria_meia": ing.categoria_meia.value if ing.categoria_meia else None,
+                    "comprovante_meia": COMPROVANTE_MEIA[ing.categoria_meia] if ing.categoria_meia else None,
+                }
                 for ing in r.ingressos
             ]
         }

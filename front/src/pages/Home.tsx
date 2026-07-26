@@ -1,5 +1,5 @@
 import { useEffect, useState, useContext, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import api from '../services/api';
 import {
@@ -22,6 +22,7 @@ import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { toast } from '../components/toast';
 import { useLanguage } from '../contexts/languageContext';
 import { LANGUAGES } from '../i18n/translations';
+import { encontrarCategoriaMeia, type CategoriaMeia } from '../components/meiaEntrada';
 
 interface Sessao {
   id: number;
@@ -52,7 +53,21 @@ interface Reserva {
   sala: string;
   assentos: string[];
   data_reserva: string;
-  ingressos: Array<{ tipo: string; valor: number }>;
+  ingressos: Array<{
+    tipo: string;
+    valor: number;
+    categoria_meia: string | null;
+    comprovante_meia: string | null;
+  }>;
+  pagamento: {
+    metodo: string;
+    valor_total: number;
+    parcelas: number;
+    valor_parcela: number | null;
+    valor_total_com_juros: number | null;
+    taxa_juros_mensal: number;
+    status: string | null;
+  } | null;
 }
 
 interface CalendarSessao {
@@ -95,22 +110,31 @@ const cardVariant: Variants = {
 };
 
 export function Home() {
+  const location = useLocation();
+  // Estado enviado pelo checkout ao clicar em "Ver minha reserva".
+  const navState = location.state as { abrirReservas?: boolean; reservaId?: number } | null;
+  const chegouDoCheckout = Boolean(navState?.abrirReservas);
+
   const [filmes, setFilmes] = useState<Filme[]>([]);
   const [activeDate] = useState<Date>(new Date());
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeModal, setActiveModal] = useState<ModalType>(null);
+  const [activeModal, setActiveModal] = useState<ModalType>(chegouDoCheckout ? 'reservas' : null);
   const [selectedMovie, setSelectedMovie] = useState<Filme | null>(null);
   const [calendarViewDate, setCalendarViewDate] = useState<Date>(new Date());
   const [selectedCalDay, setSelectedCalDay] = useState<number>(new Date().getDate());
   const [sessionesCalendarData, setSessionesCalendarData] = useState<Record<number, CalendarSessao[]>>({});
-  const [activeNav, setActiveNav] = useState<NavId>('home');
+  const [activeNav, setActiveNav] = useState<NavId>(chegouDoCheckout ? 'reserva' : 'home');
   const [activeTab, setActiveTab] = useState<TabId>('tv');
   const [query, setQuery] = useState('');
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const { user } = useContext(AuthContext);
   const { lang, setLang, t } = useLanguage();
   const navigate = useNavigate();
+  // Reserva recém-criada: fica destacada no histórico por alguns segundos.
+  const [reservaDestacada, setReservaDestacada] = useState<number | null>(
+    chegouDoCheckout ? navState?.reservaId ?? null : null,
+  );
 
   useEffect(() => {
     async function fetchFilmes() {
@@ -136,6 +160,21 @@ export function Home() {
         .catch(() => setReservas([]));
     }
   }, [activeModal, user]);
+
+  // Chegou do checkout ("Ver minha reserva"): o modal já abre montado (estado
+  // inicial), aqui só limpamos o state para o F5 não reabrir sozinho.
+  useEffect(() => {
+    if (!chegouDoCheckout) return;
+    if (!user) navigate('/login');
+    else navigate('/', { replace: true, state: null });
+  }, [chegouDoCheckout, user, navigate]);
+
+  // O destaque é temporário: some sozinho depois que o usuário se localiza.
+  useEffect(() => {
+    if (reservaDestacada === null) return;
+    const timer = setTimeout(() => setReservaDestacada(null), 6000);
+    return () => clearTimeout(timer);
+  }, [reservaDestacada]);
 
   useEffect(() => {
     if (activeModal === 'calendario') {
@@ -600,13 +639,32 @@ export function Home() {
                       </div>
                     ) : (
                       <motion.div initial="hidden" animate="visible" variants={stagger} className="flex flex-col gap-3">
-                        {reservas.map(r => (
-                          <motion.div key={r.id} variants={fadeUp} className="flex items-start gap-4 rounded-2xl p-4 transition-all duration-150 ease-out hover:scale-[1.01]" style={{ background: 'rgba(245,197,24,0.05)', border: '1px solid rgba(245,197,24,0.15)' }}>
+                        {reservas.map(r => {
+                          const nova = r.id === reservaDestacada;
+                          return (
+                          <motion.div
+                            key={r.id}
+                            variants={fadeUp}
+                            animate={nova ? { scale: [1, 1.02, 1] } : undefined}
+                            transition={nova ? { duration: 0.5, ease: 'easeOut' } : undefined}
+                            ref={nova ? (el) => el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) : undefined}
+                            className={`flex items-start gap-4 rounded-2xl p-4 transition-all duration-150 ease-out hover:scale-[1.01] ${
+                              nova ? 'ring-2 ring-emerald-400/70 shadow-[0_0_30px_-6px_rgba(52,211,153,0.45)]' : ''
+                            }`}
+                            style={{ background: 'rgba(245,197,24,0.05)', border: '1px solid rgba(245,197,24,0.15)' }}
+                          >
                             <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-1" style={{ background: 'rgba(245,197,24,0.15)', border: '1px solid rgba(245,197,24,0.25)' }}>
                               <Ticket className="w-5 h-5 text-accent" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-white font-bold text-sm">{r.filme}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-white font-bold text-sm">{r.filme}</p>
+                                {nova && (
+                                  <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-400/40">
+                                    Nova
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-zinc-500 text-xs mt-1 flex items-center gap-1">
                                 <MapPin className="w-3 h-3" />{t('common.room')} {r.sala} • {r.assentos.length > 1 ? t('common.seats') : t('common.seat')} <span className="text-accent font-bold">{r.assentos.join(', ')}</span>
                               </p>
@@ -614,16 +672,52 @@ export function Home() {
                               <div className="flex gap-1 mt-2 flex-wrap">
                                 {r.ingressos.map((ing, idx) => (
                                   <span key={idx} className="text-[9px] px-2 py-1 rounded bg-accent/10 text-accent border border-accent/30">
-                                    {ing.tipo} - R${ing.valor.toFixed(2)}
+                                    {ing.categoria_meia
+                                      ? encontrarCategoriaMeia(ing.categoria_meia as CategoriaMeia)?.label ?? ing.tipo
+                                      : ing.tipo}{' '}
+                                    - R${ing.valor.toFixed(2)}
                                   </span>
                                 ))}
                               </div>
+                              {/* Meia só vale mediante comprovação na portaria. */}
+                              {(() => {
+                                const comprovantes = [...new Set(
+                                  r.ingressos.map(i => i.comprovante_meia).filter((c): c is string => !!c)
+                                )];
+                                if (comprovantes.length === 0) return null;
+                                return (
+                                  <div className="mt-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2.5 py-2">
+                                    {comprovantes.map(c => (
+                                      <p key={c} className="text-[10px] leading-relaxed text-amber-200/85">
+                                        Meia-entrada: apresente {c} na entrada.
+                                      </p>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
+                              {/* Como foi pago — parcelamento vem calculado do servidor. */}
+                              {r.pagamento && (
+                                <p className="text-zinc-500 text-xs mt-2">
+                                  {r.pagamento.metodo === 'pix' ? 'PIX à vista' : `Crédito ${r.pagamento.parcelas}x`}
+                                  {' · '}
+                                  <span className="text-zinc-300 font-bold">
+                                    R${(r.pagamento.valor_total_com_juros ?? r.pagamento.valor_total).toFixed(2)}
+                                  </span>
+                                  {r.pagamento.parcelas > 1 && r.pagamento.valor_parcela != null && (
+                                    <span className={r.pagamento.taxa_juros_mensal > 0 ? 'text-zinc-600' : 'text-emerald-400/80'}>
+                                      {' '}({r.pagamento.parcelas}x de R${r.pagamento.valor_parcela.toFixed(2)}
+                                      {r.pagamento.taxa_juros_mensal > 0 ? ' c/ juros' : ' s/ juros'})
+                                    </span>
+                                  )}
+                                </p>
+                              )}
                             </div>
                             <div className="flex items-center gap-1 text-green-300 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider shrink-0" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)' }}>
                               <CheckCircle className="w-3 h-3" />OK
                             </div>
                           </motion.div>
-                        ))}
+                          );
+                        })}
                       </motion.div>
                     )}
                   </div>

@@ -3,13 +3,35 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import axios from 'axios';
 import api from '../services/api';
-import { ChevronLeft, MapPin, Clock, Check, AlertCircle, Loader2, QrCode } from 'lucide-react';
+import { ChevronLeft, MapPin, Clock, Check, AlertCircle, Loader2, QrCode, CreditCard, Ticket } from 'lucide-react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { toast } from '../components/toast';
 import { useLanguage } from '../contexts/languageContext';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import Cards, { type Focused } from 'react-credit-cards-2';
-import 'react-credit-cards-2/dist/es/styles-compiled.css';
+import { PixCopiaECola } from '../components/PixCopiaECola';
+import {
+  CATEGORIAS_MEIA,
+  GRUPOS_MEIA,
+  encontrarCategoriaMeia,
+  type CategoriaMeia,
+} from '../components/meiaEntrada';
+import { CreditCardPreview } from '../components/CreditCardPreview';
+import {
+  BANDEIRAS,
+  apenasDigitos,
+  detectarBandeira,
+  formatarNumeroCartao,
+  formatarValidade,
+} from '../components/cartaoBandeiras';
+import {
+  PARCELAS_SEM_JUROS,
+  TAXA_MENSAL,
+  calcularParcela,
+  formatarBRL,
+  opcoesParcelamento,
+} from '../components/parcelamento';
+
+type CampoCartao = 'number' | 'name' | 'expiry' | 'cvc' | '';
 
 const appleSpring = { type: "spring" as const, stiffness: 400, damping: 30, mass: 0.8 };
 const applePage: Variants = {
@@ -51,6 +73,24 @@ interface Sessao {
   }>;
 }
 
+/** Confirmação escrita pelo servidor, específica por meio de pagamento. */
+interface ConfirmacaoPagamento {
+  titulo: string;
+  resumo: string;
+  detalhe: string;
+  selo: string;
+}
+
+/** Parcelamento como o servidor calculou e gravou (fonte da verdade). */
+interface ParcelamentoConfirmado {
+  parcelas: number;
+  valor_parcela: number;
+  valor_primeira_parcela: number;
+  valor_total_com_juros: number;
+  taxa_juros_mensal: number;
+  tem_juros: boolean;
+}
+
 type Etapa = 'assentos' | 'ingressos' | 'pagamento' | 'sucesso';
 
 export function SeatSelection() {
@@ -69,7 +109,17 @@ export function SeatSelection() {
     meia: 0,
     itau_promo: 0,
   });
+  // Benefício que justifica a meia — obrigatório quando há ingresso meia.
+  const [categoriaMeia, setCategoriaMeia] = useState<CategoriaMeia | null>(null);
   const [metodoPagamento, setMetodoPagamento] = useState<'cartao' | 'pix'>('cartao');
+  const [parcelas, setParcelas] = useState(1);
+  const [parcelamentoConfirmado, setParcelamentoConfirmado] = useState<ParcelamentoConfirmado | null>(null);
+  const [confirmacao, setConfirmacao] = useState<ConfirmacaoPagamento | null>(null);
+  const [reservaNumero, setReservaNumero] = useState<number | null>(null);
+  // Comprovantes exigidos, como o servidor devolveu na confirmação.
+  const [avisosMeia, setAvisosMeia] = useState<Array<{ categoria: string; comprovante: string }>>([]);
+  // Congelado no envio: o cartão pode ser limpo depois, mas o comprovante não muda.
+  const [cartaoUsado, setCartaoUsado] = useState<{ bandeira: string; ultimos4: string } | null>(null);
   const [processando, setProcessando] = useState(false);
   const [mensagemSucesso, setMensagemSucesso] = useState('');
   const [erro, setErro] = useState('');
@@ -79,8 +129,12 @@ export function SeatSelection() {
     expiry: '',
     cvc: '',
     name: '',
-    focus: '' as Focused,
+    focus: '' as CampoCartao,
   });
+
+  // Bandeira detectada pelo BIN define cores, logo e limites dos campos.
+  const bandeira = detectarBandeira(cardState.number);
+  const regrasBandeira = BANDEIRAS[bandeira];
 
   useEffect(() => {
     if (!user) {
@@ -124,19 +178,34 @@ export function SeatSelection() {
   }
 
   function handleIngressoChange(tipo: 'inteira' | 'meia' | 'itau_promo', valor: number) {
+    const novoValor = Math.max(0, valor);
+    // Zerou a meia: o benefício deixa de fazer sentido.
+    if (tipo === 'meia' && novoValor === 0) setCategoriaMeia(null);
     setIngressos(prev => ({
       ...prev,
-      [tipo]: Math.max(0, valor)
+      [tipo]: novoValor
     }));
   }
 
   const handleCardInputChange = (evt: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = evt.target;
-    setCardState((prev) => ({ ...prev, [name]: value }));
+    setCardState((prev) => {
+      if (name === 'number') return { ...prev, number: formatarNumeroCartao(value) };
+      if (name === 'expiry') return { ...prev, expiry: formatarValidade(value) };
+      if (name === 'cvc') {
+        return { ...prev, cvc: apenasDigitos(value).slice(0, regrasBandeira.digitosCvv) };
+      }
+      return { ...prev, [name]: value };
+    });
   };
 
   const handleCardInputFocus = (evt: React.FocusEvent<HTMLInputElement>) => {
-    setCardState((prev) => ({ ...prev, focus: evt.target.name as Focused }));
+    setCardState((prev) => ({ ...prev, focus: evt.target.name as CampoCartao }));
+  };
+
+  // Sai do foco do CVV: cartão volta para a frente.
+  const handleCardInputBlur = () => {
+    setCardState((prev) => ({ ...prev, focus: '' }));
   };
 
   function calcularTotal() {
@@ -146,6 +215,35 @@ export function SeatSelection() {
     const totalMeia = ingressos.meia * (precos.meia ?? 0);
     const totalItau = ingressos.itau_promo * (precos.itau_promo ?? 0);
     return totalInteira + totalMeia + totalItau;
+  }
+
+  /** Fallback quando a resposta não traz a confirmação escrita pelo servidor. */
+  function montarConfirmacaoLocal(): ConfirmacaoPagamento {
+    const op = calcularParcela(calcularTotal(), metodoPagamento === 'cartao' ? parcelas : 1);
+    if (metodoPagamento === 'pix') {
+      return {
+        titulo: 'PIX confirmado!',
+        resumo: `Recebemos ${formatarBRL(op.total)} à vista.`,
+        detalhe: 'Compensação instantânea — não há parcelas nem taxas.',
+        selo: 'PAGO À VISTA',
+      };
+    }
+    return {
+      titulo: 'Pagamento aprovado!',
+      resumo:
+        op.parcelas === 1
+          ? `Cobrança única de ${formatarBRL(op.total)} no crédito.`
+          : `${op.parcelas}x de ${formatarBRL(op.valorParcela)} ${op.temJuros ? 'com juros' : 'sem juros'}.`,
+      detalhe: 'Na fatura, a compra aparece como KINOPLEX*CINEMA.',
+      selo: op.parcelas === 1 ? 'CRÉDITO À VISTA' : op.temJuros ? 'PARCELADO COM JUROS' : 'SEM JUROS',
+    };
+  }
+
+  /** Idem para o aviso de meia-entrada. */
+  function avisosMeiaLocais() {
+    const cat = encontrarCategoriaMeia(categoriaMeia);
+    if (ingressos.meia === 0 || !cat) return [];
+    return [{ categoria: cat.id, comprovante: cat.comprovante }];
   }
 
   async function handleConfirmarReserva(e: React.FormEvent) {
@@ -163,25 +261,56 @@ export function SeatSelection() {
     }
 
     setProcessando(true);
+    setErro('');
     try {
       const response = await api.post('/api/reservas', {
-        sessao_id: sessao.id,
-        assentos: assentosSelecionados,
+        reserva: {
+          sessao_id: sessao.id,
+          assentos: assentosSelecionados,
+        },
         pagamento: {
           metodo: metodoPagamento,
+          // Só o número de parcelas vai ao servidor — juros e valores são
+          // recalculados lá, que é a fonte da verdade do preço.
+          parcelas: metodoPagamento === 'cartao' ? parcelas : 1,
           ingressos: [
             { tipo: 'INTEIRA', quantidade: ingressos.inteira },
-            { tipo: 'MEIA', quantidade: ingressos.meia },
+            { tipo: 'MEIA', quantidade: ingressos.meia, categoria_meia: categoriaMeia },
             { tipo: 'ITAU_PROMO', quantidade: ingressos.itau_promo },
           ].filter(ing => ing.quantidade > 0)
         }
       });
 
-      setMensagemSucesso(`Reserva confirmada! ID: ${response.data.reserva_id}`);
+      setMensagemSucesso(`Código da reserva: ${response.data.reserva_id}`);
+      // O servidor é quem define o parcelamento cobrado e o texto da
+      // confirmação. Se a resposta vier sem esses campos (backend em versão
+      // anterior), montamos um equivalente local para nunca cair em tela muda.
+      const detalhes = response.data.detalhes ?? {};
+      setParcelamentoConfirmado(detalhes.parcelamento ?? null);
+      setConfirmacao(detalhes.confirmacao ?? montarConfirmacaoLocal());
+      setReservaNumero(response.data.reserva_numero ?? null);
+      setAvisosMeia(detalhes.meia_entrada ?? avisosMeiaLocais());
+      setCartaoUsado(
+        metodoPagamento === 'cartao'
+          ? {
+              bandeira: BANDEIRAS[detectarBandeira(cardState.number)].nome,
+              ultimos4: apenasDigitos(cardState.number).slice(-4),
+            }
+          : null,
+      );
       setEtapa('sucesso');
     } catch (error) {
       const detail = axios.isAxiosError(error) ? error.response?.data?.detail : undefined;
-      setErro(detail || 'Erro ao confirmar reserva');
+      // detail pode vir como string (HTTPException) ou lista (validação Pydantic).
+      const mensagem =
+        typeof detail === 'string'
+          ? detail
+          : Array.isArray(detail)
+            ? detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join('; ')
+            : 'Erro ao confirmar reserva. Verifique se o servidor está rodando.';
+      setErro(mensagem);
+      toast(mensagem);
+      console.error('Falha ao confirmar reserva:', error);
     } finally {
       setProcessando(false);
     }
@@ -211,6 +340,12 @@ export function SeatSelection() {
       </div>
     );
   }
+
+  // Pagamento só libera com ingressos batendo com assentos e, havendo meia,
+  // com o benefício escolhido (é ele que define o documento na entrada).
+  const podeIrParaPagamento =
+    ingressos.inteira + ingressos.meia + ingressos.itau_promo === assentosSelecionados.length &&
+    (ingressos.meia === 0 || categoriaMeia !== null);
 
   // Etapa segura para renderizar: nunca mostra ingressos/pagamento sem assentos.
   const requerAssentos = (e: Etapa) => e === 'ingressos' || e === 'pagamento';
@@ -453,6 +588,79 @@ export function SeatSelection() {
                 ))}
               </div>
 
+              {/* CATEGORIA DA MEIA — some junto com o ingresso meia */}
+              <AnimatePresence>
+                {ingressos.meia > 0 && (
+                  <motion.div
+                    key="categoria-meia"
+                    layout
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={appleSpring}
+                    className="overflow-hidden mb-6"
+                  >
+                    <div className="bg-zinc-950/60 border border-white/5 rounded-2xl p-5">
+                      <p className="text-sm font-bold text-zinc-300">
+                        Qual benefício dá direito à meia?
+                      </p>
+                      <p className="text-xs text-zinc-500 mt-1 mb-4">
+                        {ingressos.meia} ingresso(s) meia — escolha uma opção para continuar.
+                      </p>
+
+                      <div className="space-y-4">
+                        {GRUPOS_MEIA.map(grupo => (
+                          <div key={grupo.id}>
+                            <p className="text-[0.65rem] font-black uppercase tracking-widest text-zinc-600 mb-2">
+                              {grupo.titulo}
+                            </p>
+                            <div className="grid sm:grid-cols-2 gap-2">
+                              {CATEGORIAS_MEIA.filter(c => c.grupo === grupo.id).map(cat => (
+                                <motion.button
+                                  key={cat.id}
+                                  type="button"
+                                  whileHover={{ scale: 1.01 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  onClick={() => setCategoriaMeia(cat.id)}
+                                  className={`rounded-xl border-2 px-3 py-2.5 text-left transition-colors duration-150 ease-out ${
+                                    categoriaMeia === cat.id
+                                      ? 'border-orange-500 bg-orange-500/10'
+                                      : 'border-white/5 bg-zinc-800 hover:border-orange-500/30'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-base shrink-0">{cat.icone}</span>
+                                    <span className="font-bold text-xs text-white leading-tight">{cat.label}</span>
+                                    {categoriaMeia === cat.id && (
+                                      <Check className="w-4 h-4 text-orange-400 ml-auto shrink-0" />
+                                    )}
+                                  </div>
+                                  <p className="mt-0.5 text-[0.7rem] text-zinc-500 leading-snug">{cat.resumo}</p>
+                                </motion.button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {categoriaMeia && (
+                        <p className="mt-4 text-xs text-amber-300/90 flex items-start gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0 mt-px" />
+                          Na entrada da sala será exigido: {encontrarCategoriaMeia(categoriaMeia)?.comprovante}.
+                        </p>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {ingressos.meia > 0 && !categoriaMeia && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4 mb-6 text-yellow-400 text-sm flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5" />
+                  Escolha o benefício da meia-entrada para prosseguir
+                </div>
+              )}
+
               {ingressos.inteira + ingressos.meia + ingressos.itau_promo !== assentosSelecionados.length && (
                 <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-2xl p-4 mb-6 text-yellow-400 text-sm flex items-center gap-2">
                   <AlertCircle className="w-5 h-5" />
@@ -468,10 +676,10 @@ export function SeatSelection() {
                   {t('tickets.back')}
                 </button>
                 <button
-                  onClick={() => ingressos.inteira + ingressos.meia + ingressos.itau_promo === assentosSelecionados.length && setEtapa('pagamento')}
-                  disabled={ingressos.inteira + ingressos.meia + ingressos.itau_promo !== assentosSelecionados.length}
+                  onClick={() => podeIrParaPagamento && setEtapa('pagamento')}
+                  disabled={!podeIrParaPagamento}
                   className={`px-8 py-3 rounded-xl font-bold transition-all duration-150 ease-out ${
-                    ingressos.inteira + ingressos.meia + ingressos.itau_promo === assentosSelecionados.length
+                    podeIrParaPagamento
                       ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white'
                       : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
                   }`}
@@ -502,7 +710,10 @@ export function SeatSelection() {
                       transition={appleSpring}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setMetodoPagamento(met.id)}
+                      onClick={() => {
+                        setMetodoPagamento(met.id);
+                        if (met.id === 'pix') setParcelas(1); // PIX é sempre à vista
+                      }}
                       className={`w-full p-4 rounded-2xl border-2 transition-colors duration-150 ease-out flex items-center gap-3 ${
                         metodoPagamento === met.id
                           ? 'border-orange-500 bg-orange-500/10'
@@ -521,14 +732,12 @@ export function SeatSelection() {
                 {metodoPagamento === 'cartao' && (
                   <div className="space-y-6">
                     <div className="flex justify-center mb-6">
-                      <Cards
-                        number={cardState.number}
-                        expiry={cardState.expiry}
-                        cvc={cardState.cvc}
-                        name={cardState.name}
-                      focused={cardState.focus || undefined}
-                        placeholders={{ name: 'SEU NOME AQUI' }}
-                        locale={{ valid: 'Validade' }}
+                      <CreditCardPreview
+                        numero={cardState.number}
+                        nome={cardState.name}
+                        validade={cardState.expiry}
+                        cvv={cardState.cvc}
+                        foco={cardState.focus}
                       />
                     </div>
                     <div>
@@ -536,12 +745,14 @@ export function SeatSelection() {
                       <input
                         type="text"
                         name="number"
-                        placeholder="Número do Cartão"
+                        inputMode="numeric"
+                        autoComplete="cc-number"
+                        placeholder="0000 0000 0000 0000"
                         value={cardState.number}
                         onChange={handleCardInputChange}
                         onFocus={handleCardInputFocus}
-                        maxLength={16}
-                        className="w-full px-4 py-3 bg-zinc-800 border border-white/5 rounded-xl text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500"
+                        onBlur={handleCardInputBlur}
+                        className="w-full px-4 py-3 bg-zinc-800 border border-white/5 rounded-xl text-white font-mono tracking-wider placeholder:text-zinc-600 placeholder:font-mono focus:outline-none focus:border-orange-500"
                       />
                     </div>
                     <div>
@@ -549,10 +760,12 @@ export function SeatSelection() {
                       <input
                         type="text"
                         name="name"
+                        autoComplete="cc-name"
                         placeholder="Nome Impresso no Cartão"
                         value={cardState.name}
                         onChange={handleCardInputChange}
                         onFocus={handleCardInputFocus}
+                        onBlur={handleCardInputBlur}
                         className="w-full px-4 py-3 bg-zinc-800 border border-white/5 rounded-xl text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500"
                       />
                     </div>
@@ -562,39 +775,92 @@ export function SeatSelection() {
                         <input
                           type="text"
                           name="expiry"
+                          inputMode="numeric"
+                          autoComplete="cc-exp"
                           placeholder="MM/AA"
                           value={cardState.expiry}
                           onChange={handleCardInputChange}
                           onFocus={handleCardInputFocus}
-                          maxLength={4}
-                          className="w-full px-4 py-3 bg-zinc-800 border border-white/5 rounded-xl text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500"
+                          onBlur={handleCardInputBlur}
+                          maxLength={5}
+                          className="w-full px-4 py-3 bg-zinc-800 border border-white/5 rounded-xl text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-orange-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-bold mb-2 text-zinc-300">CVV</label>
+                        <label className="block text-sm font-bold mb-2 text-zinc-300">
+                          CVV <span className="text-zinc-500 font-normal">({regrasBandeira.digitosCvv} dígitos)</span>
+                        </label>
                         <input
                           type="password"
                           name="cvc"
-                          placeholder="***"
+                          inputMode="numeric"
+                          autoComplete="cc-csc"
+                          placeholder={'•'.repeat(regrasBandeira.digitosCvv)}
                           value={cardState.cvc}
                           onChange={handleCardInputChange}
                           onFocus={handleCardInputFocus}
-                          maxLength={4}
-                          className="w-full px-4 py-3 bg-zinc-800 border border-white/5 rounded-xl text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500"
+                          onBlur={handleCardInputBlur}
+                          maxLength={regrasBandeira.digitosCvv}
+                          className="w-full px-4 py-3 bg-zinc-800 border border-white/5 rounded-xl text-white font-mono placeholder:text-zinc-600 focus:outline-none focus:border-orange-500"
                         />
                       </div>
+                    </div>
+
+                    {/* PARCELAMENTO — até 3x sem juros, acima disso com juros */}
+                    <div>
+                      <label className="block text-sm font-bold mb-2 text-zinc-300">Parcelamento</label>
+                      <div className="grid sm:grid-cols-2 gap-2">
+                        {opcoesParcelamento(calcularTotal()).map(op => (
+                          <motion.button
+                            key={op.parcelas}
+                            type="button"
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => setParcelas(op.parcelas)}
+                            className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors duration-150 ease-out ${
+                              parcelas === op.parcelas
+                                ? 'border-orange-500 bg-orange-500/10'
+                                : 'border-white/5 bg-zinc-800 hover:border-orange-500/30'
+                            }`}
+                          >
+                            <span className="text-sm font-bold text-white">
+                              {op.parcelas}x de {formatarBRL(op.valorParcela)}
+                            </span>
+                            <span
+                              className={`text-[0.65rem] font-bold uppercase tracking-wider ${
+                                op.temJuros ? 'text-zinc-500' : 'text-emerald-400'
+                              }`}
+                            >
+                              {op.temJuros ? `total ${formatarBRL(op.total)}` : 'sem juros'}
+                            </span>
+                          </motion.button>
+                        ))}
+                      </div>
+                      <p className="mt-2 text-xs text-zinc-500">
+                        Até {PARCELAS_SEM_JUROS}x sem juros em qualquer valor. A partir de {PARCELAS_SEM_JUROS + 1}x,
+                        juros de {(TAXA_MENSAL * 100).toFixed(2).replace('.', ',')}% ao mês.
+                      </p>
                     </div>
                   </div>
                 )}
 
                 {metodoPagamento === 'pix' && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-zinc-800/50 border border-white/5 rounded-2xl p-6 text-center space-y-4 mb-4 overflow-hidden">
-                    <p className="text-zinc-300 font-bold">Escaneie o QR Code para pagar via PIX</p>
-                    <div className="w-40 h-40 bg-white mx-auto rounded-xl p-2 shadow-lg flex items-center justify-center">
-                      <QrCode className="w-full h-full text-zinc-900" />
-                    </div>
-                    <p className="text-xs text-zinc-500">O pagamento será aprovado em instantes.</p>
-                  </motion.div>
+                  <PixCopiaECola
+                    sessaoId={sessao.id}
+                    ingressos={[
+                      { tipo: 'INTEIRA', quantidade: ingressos.inteira },
+                      { tipo: 'MEIA', quantidade: ingressos.meia },
+                      { tipo: 'ITAU_PROMO', quantidade: ingressos.itau_promo },
+                    ].filter(ing => ing.quantidade > 0)}
+                  />
+                )}
+
+                {/* Falha na confirmação precisa aparecer aqui — é onde o
+                    usuário está quando o POST /api/reservas quebra. */}
+                {erro && (
+                  <div className="mt-6 bg-red-500/10 border border-red-500/30 rounded-2xl p-4 text-red-300 text-sm flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 shrink-0 mt-px" />
+                    <span>{erro}</span>
+                  </div>
                 )}
 
                 <div className="flex justify-between gap-4 mt-8">
@@ -673,6 +939,55 @@ export function SeatSelection() {
                   <span className="font-black text-white">{t('pay.total')}</span>
                   <span className="text-2xl font-black text-orange-400">R${calcularTotal().toFixed(2)}</span>
                 </motion.div>
+
+                {/* Meia exige comprovação na portaria — avisa antes de pagar. */}
+                <AnimatePresence>
+                  {ingressos.meia > 0 && categoriaMeia && (
+                    <motion.div
+                      key="aviso-meia"
+                      layout
+                      initial={{ opacity: 0, height: 0, y: -8 }}
+                      animate={{ opacity: 1, height: 'auto', y: 0 }}
+                      exit={{ opacity: 0, height: 0, y: -8 }}
+                      transition={appleSpring}
+                      className="mt-4 overflow-hidden"
+                    >
+                      <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <AlertCircle className="w-4 h-4 text-amber-300 shrink-0" />
+                          <p className="text-xs font-black uppercase tracking-wider text-amber-300">
+                            Meia-entrada · {encontrarCategoriaMeia(categoriaMeia)?.label}
+                          </p>
+                        </div>
+                        <p className="text-xs leading-relaxed text-amber-100/80">
+                          {ingressos.meia === 1
+                            ? 'O portador do ingresso meia deverá apresentar '
+                            : `Os portadores dos ${ingressos.meia} ingressos meia deverão apresentar `}
+                          <span className="font-bold text-amber-200">
+                            {encontrarCategoriaMeia(categoriaMeia)?.comprovante}
+                          </span>{' '}
+                          na entrada da sala. Sem a comprovação, será cobrada a diferença para o
+                          valor da inteira.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Com juros, o total cobrado difere do total dos ingressos. */}
+                {metodoPagamento === 'cartao' && (() => {
+                  const op = calcularParcela(calcularTotal(), parcelas);
+                  return (
+                    <motion.div layout className="mt-3 text-right">
+                      <p className="text-sm text-zinc-300">
+                        {op.parcelas}x de <span className="font-black text-white">{formatarBRL(op.valorParcela)}</span>
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        {op.temJuros ? `com juros — total ${formatarBRL(op.total)}` : 'sem juros'}
+                      </p>
+                    </motion.div>
+                  );
+                })()}
               </motion.div>
             </div>
           </motion.div>
@@ -693,8 +1008,59 @@ export function SeatSelection() {
               <Check className="w-8 h-8 text-white" />
             </motion.div>
 
-            <h2 className="text-4xl font-black text-white mb-2">{t('success.title')}</h2>
+            <h2 className="text-4xl font-black text-white mb-2">
+              {confirmacao?.titulo ?? t('success.title')}
+            </h2>
             <p className="text-zinc-400 mb-6">{mensagemSucesso}</p>
+
+            {/* CONFIRMAÇÃO DO PAGAMENTO — texto vindo do servidor, visual por método */}
+            {confirmacao && (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.32, duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+                className={`max-w-md mx-auto rounded-2xl border p-5 text-left ${
+                  metodoPagamento === 'pix'
+                    ? 'border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-teal-500/5'
+                    : 'border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-purple-500/5'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div
+                    className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center ${
+                      metodoPagamento === 'pix'
+                        ? 'bg-emerald-500/20 text-emerald-300'
+                        : 'bg-orange-500/20 text-orange-300'
+                    }`}
+                  >
+                    {metodoPagamento === 'pix' ? <QrCode className="w-6 h-6" /> : <CreditCard className="w-6 h-6" />}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span
+                        className={`text-[0.6rem] font-black uppercase tracking-widest px-2 py-0.5 rounded border ${
+                          metodoPagamento === 'pix'
+                            ? 'text-emerald-300 border-emerald-500/40 bg-emerald-500/10'
+                            : 'text-orange-300 border-orange-500/40 bg-orange-500/10'
+                        }`}
+                      >
+                        {confirmacao.selo}
+                      </span>
+                      {/* Bandeira e últimos 4 só existem aqui — nunca vão ao servidor. */}
+                      {cartaoUsado && cartaoUsado.ultimos4.length === 4 && (
+                        <span className="text-xs font-mono text-zinc-400">
+                          {cartaoUsado.bandeira} •••• {cartaoUsado.ultimos4}
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="font-black text-white">{confirmacao.resumo}</p>
+                    <p className="mt-1 text-sm leading-relaxed text-zinc-400">{confirmacao.detalhe}</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
             <div className="bg-zinc-900 border border-white/5 rounded-2xl p-6 my-8 text-left max-w-md mx-auto">
               <p className="text-sm text-zinc-400 mb-2">Seu Ingresso</p>
@@ -709,13 +1075,64 @@ export function SeatSelection() {
                     .join(', ')}
                 </span></p>
                 <p><span className="text-zinc-400">Total:</span> <span className="font-black text-orange-400">R${calcularTotal().toFixed(2)}</span></p>
+                {parcelamentoConfirmado && (
+                  <p>
+                    <span className="text-zinc-400">Pagamento:</span>{' '}
+                    <span className="font-bold">
+                      {parcelamentoConfirmado.parcelas}x de {formatarBRL(parcelamentoConfirmado.valor_parcela)}
+                    </span>{' '}
+                    <span className={parcelamentoConfirmado.tem_juros ? 'text-zinc-500' : 'text-emerald-400'}>
+                      {parcelamentoConfirmado.tem_juros
+                        ? `(com juros — total ${formatarBRL(parcelamentoConfirmado.valor_total_com_juros)})`
+                        : '(sem juros)'}
+                    </span>
+                  </p>
+                )}
               </div>
             </div>
 
+            {/* Reforça a comprovação da meia — é onde o cliente ainda está atento. */}
+            {avisosMeia.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.42, duration: 0.35, ease: [0.32, 0.72, 0, 1] }}
+                className="max-w-md mx-auto mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-left"
+              >
+                <p className="text-xs font-black uppercase tracking-wider text-amber-300 mb-2 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" /> Leve o comprovante da meia
+                </p>
+                {avisosMeia.map(aviso => (
+                  <p key={aviso.categoria} className="text-xs leading-relaxed text-amber-100/80">
+                    <span className="font-bold text-amber-200">
+                      {encontrarCategoriaMeia(aviso.categoria as CategoriaMeia)?.label ?? aviso.categoria}:
+                    </span>{' '}
+                    {aviso.comprovante}.
+                  </p>
+                ))}
+                <p className="mt-2 text-[0.7rem] text-amber-100/60">
+                  Sem a comprovação na entrada, será cobrada a diferença para a inteira.
+                </p>
+              </motion.div>
+            )}
+
+            {/* Leva direto ao histórico, com esta reserva em destaque. */}
+            <p className="text-sm text-zinc-400 mb-4">
+              Seus ingressos já estão em <span className="font-bold text-white">Minhas Reservas</span>, com filme,
+              sala, horário e cadeiras.
+            </p>
+
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
+                onClick={() => navigate('/', { state: { abrirReservas: true, reservaId: reservaNumero } })}
+                className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white rounded-xl font-bold transition-all duration-150 ease-out active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                <Ticket className="w-5 h-5" />
+                Ver minha reserva
+              </button>
+              <button
                 onClick={() => navigate('/')}
-                className="px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white rounded-xl font-bold transition-all duration-150 ease-out"
+                className="px-8 py-3 border border-white/20 hover:border-orange-500 rounded-xl font-bold transition-all duration-150 ease-out active:scale-[0.98]"
               >
                 {t('success.home')}
               </button>

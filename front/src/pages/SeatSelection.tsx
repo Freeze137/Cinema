@@ -165,8 +165,10 @@ export function SeatSelection() {
     setProcessando(true);
     try {
       const response = await api.post('/api/reservas', {
-        sessao_id: sessao.id,
-        assentos: assentosSelecionados,
+        reserva: {
+          sessao_id: sessao.id,
+          assentos: assentosSelecionados,
+        },
         pagamento: {
           metodo: metodoPagamento,
           ingressos: [

@@ -176,10 +176,11 @@ export function Home() {
       setActiveModal('calendario');
     } else if (id === 'home') {
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (id === 'movie') {
+      document.getElementById('releases')?.scrollIntoView({ behavior: 'smooth' });
     } else {
       // Rotas ainda não implementadas no backend — feedback mock.
       const labels: Record<string, string> = {
-        movie: 'Catálogo de Filmes',
         pricing: 'Planos e Preços',
         blog: 'Blog Movflx',
         contacts: 'Contato',
@@ -400,7 +401,7 @@ export function Home() {
       </section>
 
       {/* NEW RELEASE MOVIES */}
-      <section className="max-w-[1280px] mx-auto px-8 pt-2 pb-20">
+      <section id="releases" className="max-w-[1280px] mx-auto px-8 pt-2 pb-20">
         <div className="flex items-end justify-between mb-[30px] flex-wrap gap-[18px]">
           <div>
             <p className="text-accent text-xs font-bold tracking-[0.22em] uppercase m-0 mb-2">{t('releases.eyebrow')}</p>

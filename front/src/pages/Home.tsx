@@ -589,20 +589,23 @@ export function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            // Sem backdrop-blur: filtro em tela cheia re-rasteriza a página inteira
+            // a cada frame do fade. Fundo mais opaco dá o mesmo isolamento visual.
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80"
             onClick={() => setActiveModal(null)}
           >
             {/* Entrada estilo Netflix: expande (scale 0.95→1) e sobe (y 32→0) com ease-out. */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 32 }}
+              initial={{ opacity: 0, scale: 0.97, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 32 }}
-              transition={{ duration: 0.3, type: 'tween', ease: 'easeOut' }}
-              className="relative w-full max-w-lg overflow-hidden rounded-3xl"
+              exit={{ opacity: 0, scale: 0.97, y: 20 }}
+              transition={{ duration: 0.22, type: 'tween', ease: 'easeOut' }}
+              className="relative w-full max-w-lg overflow-hidden rounded-3xl will-change-transform"
               style={{
+                // Sem backdropFilter: o fundo já é opaco (0.98/0.99), então o blur
+                // não aparecia — só custava re-raster a cada frame da entrada.
                 background: 'linear-gradient(145deg, rgba(22,20,15,0.98) 0%, rgba(13,13,18,0.99) 100%)',
-                backdropFilter: 'blur(48px)',
                 border: '1px solid rgba(245,197,24,0.18)',
                 boxShadow: '0 0 100px rgba(245,197,24,0.07), 0 40px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06)',
               }}
@@ -619,7 +622,7 @@ export function Home() {
                       <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">{t('modal.account')}</p>
                       <h2 className="text-2xl font-black text-white">{t('modal.bookings')}</h2>
                     </div>
-                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all duration-150 ease-out hover:bg-white/10">
+                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-colors duration-150 ease-out active:scale-90 hover:bg-white/10">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -628,7 +631,7 @@ export function Home() {
                       <div className="text-center py-12">
                         <Ticket className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
                         <p className="text-zinc-400 mb-2 font-semibold">{t('bookings.loginPrompt')}</p>
-                        <button onClick={() => { setActiveModal(null); navigate('/login'); }} className="bg-accent text-[#0d0d12] px-6 py-2.5 rounded-lg font-bold text-sm hover:opacity-90 transition-all duration-150 ease-out">
+                        <button onClick={() => { setActiveModal(null); navigate('/login'); }} className="bg-accent text-[#0d0d12] px-6 py-2.5 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity duration-150 ease-out active:scale-95">
                           {t('bookings.login')}
                         </button>
                       </div>
@@ -742,7 +745,7 @@ export function Home() {
                         ><ChevronRight className="w-5 h-5" /></button>
                       </div>
                     </div>
-                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all duration-150 ease-out hover:bg-white/10">
+                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-colors duration-150 ease-out active:scale-90 hover:bg-white/10">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -762,18 +765,17 @@ export function Home() {
                         const isSelected = day === selectedCalDay;
                         const hasSessao = sessionesCalendarData[day] && sessionesCalendarData[day].length > 0;
                         return (
-                          <motion.button
+                          // <button> puro: 42 células com motion custavam um ciclo de
+                          // animação por célula a cada re-render da grade. O feedback
+                          // de toque vira active:scale-90, que roda no compositor.
+                          <button
                             key={i}
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: i * 0.005, type: 'tween', ease: 'easeOut' }}
-                            whileTap={{ scale: 0.9 }}
                             onClick={() => {
                               // Filtra client-side: só atualiza o estado e re-renderiza a grade
                               // abaixo. Sem troca de rota, sem refetch, sem fechar o modal.
                               if (!isPast) setSelectedCalDay(day);
                             }}
-                            className={`relative aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-bold transition-all duration-150 ease-out ${isSelected && !isPast
+                            className={`relative aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-bold transition-colors duration-150 ease-out active:scale-90 ${isSelected && !isPast
                               ? 'bg-accent text-[#0d0d12] shadow-lg shadow-accent/30'
                               : isToday
                                 ? 'text-white shadow-xl ring-2 ring-accent/50'
@@ -786,7 +788,7 @@ export function Home() {
                             {hasSessao && !isPast && !isSelected && (
                               <span className="absolute bottom-1 w-1 h-1 rounded-full bg-accent" />
                             )}
-                          </motion.button>
+                          </button>
                         );
                       })}
                     </div>
@@ -820,10 +822,9 @@ export function Home() {
                                     key={`${s.filme_id}-${s.horario}-${idx}`}
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: idx * 0.03, duration: 0.18, ease: 'easeOut' }}
-                                    whileHover={{ x: 3 }}
+                                    transition={{ delay: Math.min(idx, 5) * 0.025, duration: 0.16, ease: 'easeOut' }}
                                     onClick={() => toast(`Reservar "${s.filme_titulo}" às ${s.horario} — Sala ${s.sala} (mock: rota de sessão não disponível na programação)`)}
-                                    className="flex items-center gap-3 text-left rounded-xl p-3 bg-white/[0.03] border border-white/5 hover:border-accent/40 transition-colors duration-150 ease-out cursor-pointer"
+                                    className="flex items-center gap-3 text-left rounded-xl p-3 bg-white/[0.03] border border-white/5 hover:border-accent/40 hover:translate-x-[3px] active:scale-[0.99] transition-[border-color,transform] duration-150 ease-out cursor-pointer"
                                   >
                                     <span className="w-12 h-12 rounded-lg bg-accent/10 border border-accent/20 flex flex-col items-center justify-center shrink-0">
                                       <Clock className="w-3.5 h-3.5 text-accent" />
@@ -864,7 +865,7 @@ export function Home() {
                       <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">{t('modal.about')}</p>
                       <h2 className="text-2xl font-black text-white">{selectedMovie.titulo}</h2>
                     </div>
-                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all duration-150 ease-out hover:bg-white/10">
+                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-colors duration-150 ease-out active:scale-90 hover:bg-white/10">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -898,7 +899,7 @@ export function Home() {
                     {selectedMovie.sessoes?.length > 0 && (
                       <button
                         onClick={() => { setActiveModal(null); navigate(`/sessao/${selectedMovie.sessoes[0].id}`); }}
-                        className="w-full bg-accent text-[#0d0d12] font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all duration-150 ease-out"
+                        className="w-full bg-accent text-[#0d0d12] font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity duration-150 ease-out active:scale-[0.98]"
                       >
                         <Play className="w-4 h-4 fill-current" />{t('details.buy')}
                       </button>

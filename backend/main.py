@@ -598,6 +598,111 @@ async def listar_salas(db: Session = Depends(get_db)):
         for s in salas
     ]
 
+# --- PRECO ROUTES ---
+@app.get("/api/precos")
+async def listar_precos(db: Session = Depends(get_db)):
+    """Tabela de preços dos filmes em cartaz (lote ativo).
+
+    O cálculo fica aqui, e não no front, para que a tabela exibida ao
+    cliente e o valor cobrado no checkout venham sempre da mesma regra
+    (`calcular_preco_sala` / `calcular_preco_ingresso`).
+    """
+    # A tabela é institucional: mostra o catálogo inteiro, não só o lote
+    # ativo, senão o cliente da noite nunca veria o preço dos filmes da manhã.
+    filmes = db.query(FilmeDB).all()
+    sessoes = db.query(SessaoDB).all()
+
+    def periodo_do_horario(horario: str) -> str:
+        """Agrupa pela hora de exibição — nada a ver com o lote do filme,
+        que é rotação de catálogo (`get_lote_filmes`)."""
+        try:
+            hora = int(horario.split(":")[0])
+        except (ValueError, IndexError):
+            return "noite"
+        if hora < 12:
+            return "manha"
+        if hora < 18:
+            return "tarde"
+        return "noite"
+
+    # periodo -> filme_id -> dados agregados
+    agrupado = {"manha": {}, "tarde": {}, "noite": {}}
+    filmes_por_id = {f.id: f for f in filmes}
+
+    for s in sessoes:
+        filme = filmes_por_id.get(s.filme_id)
+        if filme is None:
+            continue
+
+        periodo = periodo_do_horario(s.horario)
+        preco_sala = round(calcular_preco_sala(s.preco_base, s.sala.tipo), 2)
+
+        entrada = agrupado[periodo].setdefault(filme.id, {
+            "id": filme.id,
+            "titulo": filme.titulo,
+            "sinopse": filme.sinopse,
+            "duracao": filme.duracao,
+            "genero": filme.genero,
+            "classificacao": filme.classificacao,
+            "elenco": filme.elenco,
+            "lote": filme.lote,
+            "sessoes": [],
+        })
+        entrada["sessoes"].append({
+            "id": s.id,
+            "horario": s.horario,
+            "data": s.data.isoformat(),
+            "sala": s.sala.numero,
+            "tipo_sala": s.sala.tipo.value,
+            "preco": preco_sala,
+        })
+
+    periodos = []
+    for periodo_id in ("manha", "tarde", "noite"):
+        lista = []
+        for entrada in agrupado[periodo_id].values():
+            entrada["sessoes"].sort(key=lambda x: x["horario"])
+            precos = [ses["preco"] for ses in entrada["sessoes"]]
+            entrada["preco_min"] = min(precos)
+            entrada["preco_max"] = max(precos)
+            # Horários distintos, para a coluna de exibição não repetir 14:00
+            # uma vez por sala.
+            entrada["horarios"] = sorted({ses["horario"] for ses in entrada["sessoes"]})
+            lista.append(entrada)
+
+        if not lista:
+            continue
+        lista.sort(key=lambda f: f["titulo"])
+        periodos.append({"id": periodo_id, "filmes": lista})
+
+    # Tabela geral do rodapé: preço por tipo de sala sobre o preço-base padrão.
+    salas = db.query(SalaDB).all()
+    preco_base_padrao = sessoes[0].preco_base if sessoes else 50.0
+    por_tipo = {}
+    for sala in salas:
+        preco_sala = round(calcular_preco_sala(preco_base_padrao, sala.tipo), 2)
+        linha = por_tipo.setdefault(sala.tipo.value, {
+            "tipo_sala": sala.tipo.value,
+            "inteira": preco_sala,
+            "meia": round(calcular_preco_ingresso(preco_sala, TipoIngresso.MEIA), 2),
+            "itau_promo": round(calcular_preco_ingresso(preco_sala, TipoIngresso.ITAU_PROMO), 2),
+            "salas": [],
+        })
+        linha["salas"].append(sala.numero)
+
+    return {
+        "lote_ativo": get_lote_filmes(),
+        "preco_base": preco_base_padrao,
+        "multiplicadores": {
+            TipoSala.STANDARD.value: 1.0,
+            TipoSala.KINO_EVOLUTION.value: 1.2,
+            TipoSala.PLATINUM.value: 1.5,
+        },
+        "descontos": {"meia": 0.5, "itau_promo": 0.8},
+        "periodos": periodos,
+        "tabela_salas": sorted(por_tipo.values(), key=lambda p: p["inteira"]),
+    }
+
 # --- SESSAO ROUTES ---
 @app.get("/api/sessao/{sessao_id}")
 async def obter_sessao(sessao_id: int, db: Session = Depends(get_db)):

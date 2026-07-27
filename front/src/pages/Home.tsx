@@ -3,12 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import api from '../services/api';
 import {
-  Ticket, CalendarDays, Search, Globe, ChevronDown, ChevronLeft, ChevronRight,
+  Ticket, CalendarDays, Search, ChevronDown, ChevronLeft, ChevronRight,
   Play, Star, ThumbsUp, Calendar as CalendarIcon, Clock, MonitorPlay, DownloadCloud,
-  X, MapPin, CheckCircle, Check,
+  X, MapPin, CheckCircle, Check, Film,
 } from 'lucide-react';
 
-// Ícones sociais (removidos do lucide-react) — SVGs inline do design Movflx
+// Ícones sociais (removidos do lucide-react) — SVGs inline do design Kinoplekis
 const Facebook = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor"><path d="M13 22v-9h3l.5-3.5H13V7.3c0-1 .3-1.7 1.8-1.7H17V2.4C16.6 2.4 15.4 2.3 14 2.3c-2.9 0-4.9 1.8-4.9 5v2.2H6V13h3.1v9H13z" /></svg>
 );
@@ -22,6 +22,7 @@ import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { toast } from '../components/toast';
 import { useLanguage } from '../contexts/languageContext';
 import { LANGUAGES } from '../i18n/translations';
+import { Flag } from '../components/Flags';
 import { encontrarCategoriaMeia, type CategoriaMeia } from '../components/meiaEntrada';
 
 interface Sessao {
@@ -77,11 +78,61 @@ interface CalendarSessao {
   sala: string;
 }
 
-type ModalType = 'reservas' | 'calendario' | 'detalhes' | null;
+// Resposta de GET /api/precos. O cálculo vem pronto do backend para não
+// duplicar os multiplicadores de sala que o checkout usa.
+interface PrecoSala {
+  tipo_sala: string;
+  inteira: number;
+  meia: number;
+  itau_promo: number;
+  salas: string[];
+}
+
+interface PrecoSessao {
+  id: number;
+  horario: string;
+  data: string;
+  sala: string;
+  tipo_sala: string;
+  preco: number;
+}
+
+interface PrecoFilme {
+  id: number;
+  titulo: string;
+  sinopse: string;
+  duracao?: string;
+  genero?: string;
+  classificacao?: string;
+  elenco?: string;
+  lote: number;
+  sessoes: PrecoSessao[];
+  horarios: string[];
+  preco_min: number;
+  preco_max: number;
+}
+
+type PeriodoId = 'manha' | 'tarde' | 'noite';
+
+interface PrecoPeriodo {
+  id: PeriodoId;
+  filmes: PrecoFilme[];
+}
+
+interface TabelaPrecos {
+  lote_ativo: number;
+  preco_base: number;
+  multiplicadores: Record<string, number>;
+  descontos: { meia: number; itau_promo: number };
+  periodos: PrecoPeriodo[];
+  tabela_salas: PrecoSala[];
+}
+
+type ModalType = 'reservas' | 'calendario' | 'detalhes' | 'precos' | null;
 type NavId = 'home' | 'movie' | 'reserva' | 'programacao' | 'pricing' | 'blog' | 'contacts';
 type TabId = 'tv' | 'movies' | 'anime';
 
-// Token de cor do design Movflx usado em estilo inline (radial glow do hero)
+// Token de cor do design Kinoplekis usado em estilo inline (radial glow do hero)
 const ACCENT_GLOW = 'rgba(245,197,24,0.10)';
 
 // Gradientes-placeholder dos cartazes (handoff: arte real entra via <img> depois)
@@ -125,6 +176,10 @@ export function Home() {
   const [selectedCalDay, setSelectedCalDay] = useState<number>(new Date().getDate());
   const [sessionesCalendarData, setSessionesCalendarData] = useState<Record<number, CalendarSessao[]>>({});
   const [activeNav, setActiveNav] = useState<NavId>(chegouDoCheckout ? 'reserva' : 'home');
+  const [tabelaPrecos, setTabelaPrecos] = useState<TabelaPrecos | null>(null);
+  const [precosErro, setPrecosErro] = useState(false);
+  // Sinopse expandida na tabela de preços (accordion, um filme por vez).
+  const [sinopseAberta, setSinopseAberta] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('tv');
   const [query, setQuery] = useState('');
   const [langMenuOpen, setLangMenuOpen] = useState(false);
@@ -192,6 +247,15 @@ export function Home() {
     }
   }, [activeModal, calendarViewDate]);
 
+  useEffect(() => {
+    if (activeModal !== 'precos') return;
+    let cancelado = false;
+    api.get('/api/precos')
+      .then(r => { if (!cancelado) { setTabelaPrecos(r.data); setPrecosErro(false); } })
+      .catch(() => { if (!cancelado) setPrecosErro(true); });
+    return () => { cancelado = true; };
+  }, [activeModal]);
+
   const featuredMovie = filmes.length > 0 ? filmes[0] : null;
 
   // Busca filtra a grade por título ou gênero (case-insensitive)
@@ -217,14 +281,13 @@ export function Home() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else if (id === 'movie') {
       document.getElementById('releases')?.scrollIntoView({ behavior: 'smooth' });
-    } else {
-      // Rotas ainda não implementadas no backend — feedback mock.
-      const labels: Record<string, string> = {
-        pricing: 'Planos e Preços',
-        blog: 'Blog Movflx',
-        contacts: 'Contato',
-      };
-      toast(`${labels[id] ?? id}: rota ainda não conectada (mock)`);
+    } else if (id === 'pricing') {
+      setSinopseAberta(null);
+      setActiveModal('precos');
+    } else if (id === 'blog') {
+      navigate('/blog');
+    } else if (id === 'contacts') {
+      navigate('/sobre#contato');
     }
   }
 
@@ -267,13 +330,13 @@ export function Home() {
             {t('topbar.promo')} <span className="text-accent font-semibold">{t('topbar.promoAccent')}</span>
           </p>
           <div className="flex items-center gap-[18px] text-[#9a9aa2]">
-            <button onClick={() => toast('Sobre nós — página institucional (em breve)')} className="cursor-pointer transition-colors duration-150 ease-out hover:text-accent">{t('topbar.about')}</button>
-            <button onClick={() => toast('FAQS — central de ajuda (em breve)')} className="cursor-pointer transition-colors duration-150 ease-out hover:text-accent">{t('topbar.faqs')}</button>
+            <button onClick={() => navigate('/sobre')} className="cursor-pointer transition-colors duration-150 ease-out hover:text-accent">{t('topbar.about')}</button>
+            <button onClick={() => navigate('/sobre#faq')} className="cursor-pointer transition-colors duration-150 ease-out hover:text-accent">{t('topbar.faqs')}</button>
             <span className="w-px h-[13px] bg-white/12" />
             <div className="flex gap-[13px]">
-              <button onClick={() => toast('Abrir Facebook do Movflx (mock)')} className="flex cursor-pointer transition-colors duration-150 ease-out hover:text-accent"><Facebook className="w-[14px] h-[14px]" /></button>
-              <button onClick={() => toast('Abrir Twitter/X do Movflx (mock)')} className="flex cursor-pointer transition-colors duration-150 ease-out hover:text-accent"><Twitter className="w-[14px] h-[14px]" /></button>
-              <button onClick={() => toast('Abrir Instagram do Movflx (mock)')} className="flex cursor-pointer transition-colors duration-150 ease-out hover:text-accent"><Instagram className="w-[14px] h-[14px]" /></button>
+              <button onClick={() => toast('Abrir Facebook do Kinoplekis (mock)')} className="flex cursor-pointer transition-colors duration-150 ease-out hover:text-accent"><Facebook className="w-[14px] h-[14px]" /></button>
+              <button onClick={() => toast('Abrir Twitter/X do Kinoplekis (mock)')} className="flex cursor-pointer transition-colors duration-150 ease-out hover:text-accent"><Twitter className="w-[14px] h-[14px]" /></button>
+              <button onClick={() => toast('Abrir Instagram do Kinoplekis (mock)')} className="flex cursor-pointer transition-colors duration-150 ease-out hover:text-accent"><Instagram className="w-[14px] h-[14px]" /></button>
             </div>
           </div>
         </div>
@@ -294,7 +357,7 @@ export function Home() {
                 <circle cx="18" cy="12" r="1.4" fill="#0d0d12" />
               </svg>
             </span>
-            <span className="font-extrabold text-[22px] tracking-[-0.02em] text-white">Movflx</span>
+            <span className="font-extrabold text-[22px] tracking-[-0.02em] text-white">Kinoplekis</span>
           </div>
 
           {/* Links */}
@@ -332,7 +395,7 @@ export function Home() {
                 onBlur={() => setTimeout(() => setLangMenuOpen(false), 120)}
                 className="flex items-center gap-1.5 text-[#bdbdc4] text-[12.5px] font-semibold cursor-pointer transition-colors duration-150 ease-out hover:text-accent"
               >
-                <Globe className="w-[15px] h-[15px]" />
+                <Flag code={lang} />
                 {LANGUAGES.find(l => l.code === lang)?.label}
                 <ChevronDown className={`w-2.5 h-2.5 transition-transform duration-200 ease-out ${langMenuOpen ? 'rotate-180' : ''}`} strokeWidth={2.4} />
               </button>
@@ -343,7 +406,7 @@ export function Home() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.96 }}
                     transition={{ duration: 0.15, ease: 'easeOut' }}
-                    className="absolute right-0 top-[calc(100%+10px)] z-50 w-32 overflow-hidden rounded-xl border border-white/10 bg-[#14141a] shadow-[0_12px_30px_rgba(0,0,0,0.5)]"
+                    className="absolute right-0 top-[calc(100%+10px)] z-50 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#14141a] shadow-[0_12px_30px_rgba(0,0,0,0.5)]"
                   >
                     {LANGUAGES.map(l => (
                       <button
@@ -353,8 +416,9 @@ export function Home() {
                           lang === l.code ? 'text-accent' : 'text-[#bdbdc4]'
                         }`}
                       >
-                        <span className="text-sm leading-none">{l.flag}</span>
-                        {l.code === 'pt' ? 'Português' : 'English'}
+                        <Flag code={l.code} />
+                        <span>{l.label}</span>
+                        <span className="text-[11px] font-medium text-zinc-500">{l.nome}</span>
                         {lang === l.code && <Check className="w-3.5 h-3.5 ml-auto" />}
                       </button>
                     ))}
@@ -388,7 +452,7 @@ export function Home() {
 
         <div className="relative z-10 max-w-[1280px] mx-auto px-8 pt-[92px] pb-[110px] grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-12 items-center">
           <motion.div initial="hidden" animate="visible" variants={stagger}>
-            <motion.p variants={fadeUp} className="text-accent font-bold text-base m-0 mb-3.5">Movflx</motion.p>
+            <motion.p variants={fadeUp} className="text-accent font-bold text-base m-0 mb-3.5">Kinoplekis</motion.p>
             <motion.h1 variants={fadeUp} className="text-[44px] sm:text-[62px] leading-[1.06] font-extrabold tracking-[-0.02em] text-white m-0 mb-[26px]">
               {t('hero.titleA')}<span className="text-accent">{t('hero.titleAccent')}</span>{t('hero.titleB')}
             </motion.h1>
@@ -589,20 +653,25 @@ export function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            // Sem backdrop-blur: filtro em tela cheia re-rasteriza a página inteira
+            // a cada frame do fade. Fundo mais opaco dá o mesmo isolamento visual.
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80"
             onClick={() => setActiveModal(null)}
           >
             {/* Entrada estilo Netflix: expande (scale 0.95→1) e sobe (y 32→0) com ease-out. */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 32 }}
+              initial={{ opacity: 0, scale: 0.97, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 32 }}
-              transition={{ duration: 0.3, type: 'tween', ease: 'easeOut' }}
-              className="relative w-full max-w-lg overflow-hidden rounded-3xl"
+              exit={{ opacity: 0, scale: 0.97, y: 20 }}
+              transition={{ duration: 0.22, type: 'tween', ease: 'easeOut' }}
+              className={`relative w-full overflow-hidden rounded-3xl will-change-transform ${
+                activeModal === 'precos' ? 'max-w-4xl' : 'max-w-lg'
+              }`}
               style={{
+                // Sem backdropFilter: o fundo já é opaco (0.98/0.99), então o blur
+                // não aparecia — só custava re-raster a cada frame da entrada.
                 background: 'linear-gradient(145deg, rgba(22,20,15,0.98) 0%, rgba(13,13,18,0.99) 100%)',
-                backdropFilter: 'blur(48px)',
                 border: '1px solid rgba(245,197,24,0.18)',
                 boxShadow: '0 0 100px rgba(245,197,24,0.07), 0 40px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06)',
               }}
@@ -619,7 +688,7 @@ export function Home() {
                       <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">{t('modal.account')}</p>
                       <h2 className="text-2xl font-black text-white">{t('modal.bookings')}</h2>
                     </div>
-                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all duration-150 ease-out hover:bg-white/10">
+                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-colors duration-150 ease-out active:scale-90 hover:bg-white/10">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -628,7 +697,7 @@ export function Home() {
                       <div className="text-center py-12">
                         <Ticket className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
                         <p className="text-zinc-400 mb-2 font-semibold">{t('bookings.loginPrompt')}</p>
-                        <button onClick={() => { setActiveModal(null); navigate('/login'); }} className="bg-accent text-[#0d0d12] px-6 py-2.5 rounded-lg font-bold text-sm hover:opacity-90 transition-all duration-150 ease-out">
+                        <button onClick={() => { setActiveModal(null); navigate('/login'); }} className="bg-accent text-[#0d0d12] px-6 py-2.5 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity duration-150 ease-out active:scale-95">
                           {t('bookings.login')}
                         </button>
                       </div>
@@ -742,7 +811,7 @@ export function Home() {
                         ><ChevronRight className="w-5 h-5" /></button>
                       </div>
                     </div>
-                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all duration-150 ease-out hover:bg-white/10">
+                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-colors duration-150 ease-out active:scale-90 hover:bg-white/10">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -762,18 +831,17 @@ export function Home() {
                         const isSelected = day === selectedCalDay;
                         const hasSessao = sessionesCalendarData[day] && sessionesCalendarData[day].length > 0;
                         return (
-                          <motion.button
+                          // <button> puro: 42 células com motion custavam um ciclo de
+                          // animação por célula a cada re-render da grade. O feedback
+                          // de toque vira active:scale-90, que roda no compositor.
+                          <button
                             key={i}
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: i * 0.005, type: 'tween', ease: 'easeOut' }}
-                            whileTap={{ scale: 0.9 }}
                             onClick={() => {
                               // Filtra client-side: só atualiza o estado e re-renderiza a grade
                               // abaixo. Sem troca de rota, sem refetch, sem fechar o modal.
                               if (!isPast) setSelectedCalDay(day);
                             }}
-                            className={`relative aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-bold transition-all duration-150 ease-out ${isSelected && !isPast
+                            className={`relative aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-bold transition-colors duration-150 ease-out active:scale-90 ${isSelected && !isPast
                               ? 'bg-accent text-[#0d0d12] shadow-lg shadow-accent/30'
                               : isToday
                                 ? 'text-white shadow-xl ring-2 ring-accent/50'
@@ -786,7 +854,7 @@ export function Home() {
                             {hasSessao && !isPast && !isSelected && (
                               <span className="absolute bottom-1 w-1 h-1 rounded-full bg-accent" />
                             )}
-                          </motion.button>
+                          </button>
                         );
                       })}
                     </div>
@@ -820,10 +888,9 @@ export function Home() {
                                     key={`${s.filme_id}-${s.horario}-${idx}`}
                                     initial={{ opacity: 0, x: -10 }}
                                     animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: idx * 0.03, duration: 0.18, ease: 'easeOut' }}
-                                    whileHover={{ x: 3 }}
+                                    transition={{ delay: Math.min(idx, 5) * 0.025, duration: 0.16, ease: 'easeOut' }}
                                     onClick={() => toast(`Reservar "${s.filme_titulo}" às ${s.horario} — Sala ${s.sala} (mock: rota de sessão não disponível na programação)`)}
-                                    className="flex items-center gap-3 text-left rounded-xl p-3 bg-white/[0.03] border border-white/5 hover:border-accent/40 transition-colors duration-150 ease-out cursor-pointer"
+                                    className="flex items-center gap-3 text-left rounded-xl p-3 bg-white/[0.03] border border-white/5 hover:border-accent/40 hover:translate-x-[3px] active:scale-[0.99] transition-[border-color,transform] duration-150 ease-out cursor-pointer"
                                   >
                                     <span className="w-12 h-12 rounded-lg bg-accent/10 border border-accent/20 flex flex-col items-center justify-center shrink-0">
                                       <Clock className="w-3.5 h-3.5 text-accent" />
@@ -856,6 +923,196 @@ export function Home() {
                 </>
               )}
 
+              {/* MODAL TABELA DE PREÇOS */}
+              {activeModal === 'precos' && (
+                <>
+                  <div className="relative z-10 p-6 border-b border-white/5 flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">{t('modal.pricing')}</p>
+                      <h2 className="text-2xl font-black text-white">{t('pricing.title')}</h2>
+                    </div>
+                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-colors duration-150 ease-out active:scale-90 hover:bg-white/10">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="relative z-10 p-6 max-h-[70vh] overflow-y-auto no-scrollbar">
+                    {precosErro ? (
+                      <div className="text-center py-12">
+                        <Film className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
+                        <p className="text-zinc-500 text-sm">{t('pricing.error')}</p>
+                      </div>
+                    ) : !tabelaPrecos ? (
+                      <div className="space-y-3">
+                        {[0, 1, 2, 3].map(i => (
+                          <div key={i} className="h-16 rounded-xl bg-white/[0.03] animate-pulse" />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-8">
+                        {tabelaPrecos.periodos.map(periodo => (
+                          <section key={periodo.id}>
+                            <div className="flex items-baseline justify-between mb-3 pb-2 border-b border-white/10">
+                              <h3 className="text-white font-black text-lg tracking-tight">
+                                {t(`pricing.periodo.${periodo.id}`)}
+                              </h3>
+                              <span className="text-[11px] text-zinc-500 font-medium">
+                                {t(`pricing.periodo.${periodo.id}.range`)}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-col divide-y divide-white/5">
+                              {periodo.filmes.map(filme => {
+                                const aberta = sinopseAberta === filme.id;
+                                const precoIgual = filme.preco_min === filme.preco_max;
+                                return (
+                                  <div key={`${periodo.id}-${filme.id}`} className="py-3.5">
+                                    {/* Linha: ícone + filme à esquerda, horários no meio, preço bem à direita */}
+                                    <div className="flex items-center gap-4">
+                                      <span className="w-11 h-11 shrink-0 rounded-xl bg-accent/10 border border-accent/25 flex items-center justify-center">
+                                        <Film className="w-5 h-5 text-accent" />
+                                      </span>
+
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <p className="text-white font-bold text-[15px] truncate">{filme.titulo}</p>
+                                          {filme.lote === tabelaPrecos.lote_ativo && (
+                                            <span className="text-[9px] font-black uppercase tracking-wider text-accent bg-accent/10 border border-accent/30 px-1.5 py-0.5 rounded shrink-0">
+                                              {t('pricing.featured')}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <button
+                                          onClick={() => setSinopseAberta(aberta ? null : filme.id)}
+                                          className="mt-1 inline-flex items-center gap-1 text-[12px] text-zinc-500 hover:text-accent transition-colors duration-150 ease-out cursor-pointer"
+                                        >
+                                          <ChevronRight className={`w-3 h-3 transition-transform duration-200 ease-out ${aberta ? 'rotate-90' : ''}`} />
+                                          {t('details.synopsis')}
+                                        </button>
+                                      </div>
+
+                                      <div className="hidden sm:flex flex-wrap justify-end gap-1.5 max-w-[240px]">
+                                        {filme.horarios.map(h => (
+                                          <span key={h} className="text-[11px] font-bold text-zinc-300 bg-white/[0.04] border border-white/10 px-2 py-1 rounded-md">
+                                            {h}
+                                          </span>
+                                        ))}
+                                      </div>
+
+                                      <div className="text-right shrink-0 pl-6 sm:pl-10 min-w-[116px]">
+                                        <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
+                                          {precoIgual ? t('pricing.single') : t('pricing.from')}
+                                        </p>
+                                        <p className="text-accent font-black text-xl leading-tight">
+                                          R$ {filme.preco_min.toFixed(2)}
+                                        </p>
+                                        {!precoIgual && (
+                                          <p className="text-[11px] text-zinc-600 font-medium">
+                                            {t('pricing.upTo')} R$ {filme.preco_max.toFixed(2)}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Sinopse expande na própria linha: evita empilhar modal sobre modal */}
+                                    <AnimatePresence initial={false}>
+                                      {aberta && (
+                                        <motion.div
+                                          key="sinopse"
+                                          initial={{ height: 0, opacity: 0 }}
+                                          animate={{ height: 'auto', opacity: 1 }}
+                                          exit={{ height: 0, opacity: 0 }}
+                                          transition={{ duration: 0.2, ease: 'easeOut' }}
+                                          className="overflow-hidden"
+                                        >
+                                          <div className="mt-3 ml-15 rounded-xl bg-white/[0.03] border border-white/10 p-4 space-y-3">
+                                            <p className="text-zinc-300 text-sm leading-relaxed">{filme.sinopse}</p>
+                                            <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
+                                              <span className="text-zinc-500">
+                                                {t('details.genre')}: <span className="text-zinc-200 font-medium">{filme.genero || t('details.notInformed')}</span>
+                                              </span>
+                                              <span className="text-zinc-500 flex items-center gap-1">
+                                                <Clock className="w-3 h-3 text-accent" />
+                                                <span className="text-zinc-200 font-medium">{filme.duracao || t('details.notInformed')}</span>
+                                              </span>
+                                              <span className="text-zinc-500">
+                                                {t('details.rating')}: <span className="text-zinc-200 font-medium">{filme.classificacao || t('details.free')}</span>
+                                              </span>
+                                              {filme.elenco && (
+                                                <span className="text-zinc-500">
+                                                  {t('details.cast')}: <span className="text-zinc-200 font-medium italic">{filme.elenco}</span>
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="flex flex-wrap gap-1.5 pt-1">
+                                              {filme.sessoes.map(s => (
+                                                <button
+                                                  key={s.id}
+                                                  onClick={() => { setActiveModal(null); navigate(`/sessao/${s.id}`); }}
+                                                  className="flex items-center gap-2 text-[11px] font-bold text-zinc-300 bg-white/[0.04] border border-white/10 hover:border-accent/50 hover:text-accent px-2.5 py-1.5 rounded-lg transition-colors duration-150 ease-out active:scale-95 cursor-pointer"
+                                                >
+                                                  <span>{s.horario}</span>
+                                                  <span className="text-zinc-600">·</span>
+                                                  <span>{t('common.room')} {s.sala}</span>
+                                                  <span className="text-accent">R$ {s.preco.toFixed(2)}</span>
+                                                </button>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        </motion.div>
+                                      )}
+                                    </AnimatePresence>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </section>
+                        ))}
+
+                        {/* Tabela por tipo de sala */}
+                        <section className="pt-2">
+                          <h3 className="text-white font-black text-lg tracking-tight mb-3 pb-2 border-b border-white/10">
+                            {t('pricing.byRoom')}
+                          </h3>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm border-collapse min-w-[520px]">
+                              <thead>
+                                <tr className="text-[10px] uppercase tracking-wider text-zinc-500">
+                                  <th className="text-left font-bold py-2">{t('pricing.room')}</th>
+                                  <th className="text-left font-bold py-2">{t('pricing.rooms')}</th>
+                                  <th className="text-right font-bold py-2">{t('pricing.full')}</th>
+                                  <th className="text-right font-bold py-2">{t('pricing.half')}</th>
+                                  <th className="text-right font-bold py-2">{t('pricing.itau')}</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/5">
+                                {tabelaPrecos.tabela_salas.map(linha => (
+                                  <tr key={linha.tipo_sala}>
+                                    <td className="py-3 text-white font-bold">
+                                      {linha.tipo_sala}
+                                      <span className="ml-2 text-[10px] font-medium text-zinc-600">
+                                        ×{tabelaPrecos.multiplicadores[linha.tipo_sala]?.toFixed(1) ?? '1.0'}
+                                      </span>
+                                    </td>
+                                    <td className="py-3 text-zinc-500 text-xs">{linha.salas.join(', ')}</td>
+                                    <td className="py-3 text-right text-accent font-black">R$ {linha.inteira.toFixed(2)}</td>
+                                    <td className="py-3 text-right text-zinc-300 font-medium">R$ {linha.meia.toFixed(2)}</td>
+                                    <td className="py-3 text-right text-zinc-300 font-medium">R$ {linha.itau_promo.toFixed(2)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <p className="text-[11px] text-zinc-600 mt-3 leading-relaxed">
+                            {t('pricing.note')}
+                          </p>
+                        </section>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
               {/* MODAL DETALHES DO FILME */}
               {activeModal === 'detalhes' && selectedMovie && (
                 <>
@@ -864,7 +1121,7 @@ export function Home() {
                       <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">{t('modal.about')}</p>
                       <h2 className="text-2xl font-black text-white">{selectedMovie.titulo}</h2>
                     </div>
-                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-all duration-150 ease-out hover:bg-white/10">
+                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-colors duration-150 ease-out active:scale-90 hover:bg-white/10">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -898,7 +1155,7 @@ export function Home() {
                     {selectedMovie.sessoes?.length > 0 && (
                       <button
                         onClick={() => { setActiveModal(null); navigate(`/sessao/${selectedMovie.sessoes[0].id}`); }}
-                        className="w-full bg-accent text-[#0d0d12] font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-all duration-150 ease-out"
+                        className="w-full bg-accent text-[#0d0d12] font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity duration-150 ease-out active:scale-[0.98]"
                       >
                         <Play className="w-4 h-4 fill-current" />{t('details.buy')}
                       </button>

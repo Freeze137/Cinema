@@ -41,7 +41,7 @@ PROJETO EM DESENVOLVIMENTO (Não há versões de teste ou de produção disponí
 ### Backend
 ```bash
 venv\Scripts\activate
-cd backend
+cd backend 
 python main.py
 ```
 📍 `http://127.0.0.1:8000`

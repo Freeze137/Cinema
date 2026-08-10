@@ -1,25 +1,25 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Este arquivo orienta o Claude Code (claude.ai/code) ao trabalhar no código deste repositório.
 
-## Project
+## Projeto
 
-Kinoplekis ("Kinoplex") — full-stack cinema ticket-booking study project. FastAPI + SQLAlchemy + SQLite backend, React 19 + TypeScript + Vite + Tailwind v4 frontend. Code and docs are in Portuguese (pt-BR); keep that convention.
+Kinoplekis ("Kinoplex") — aplicação full-stack de reserva de ingressos de cinema. Backend FastAPI + SQLAlchemy + SQLite, frontend React 19 + TypeScript + Vite + Tailwind v4. Código, documentação e este arquivo são em português (pt-BR); mantenha a convenção.
 
-## Commands
+## Comandos
 
-### Backend (run from `backend/`)
+### Backend (rodar a partir de `backend/`)
 ```bash
-venv\Scripts\activate          # Windows; root-level venv/
+venv\Scripts\activate          # Windows; venv/ fica na raiz
 cd backend
-python main.py                 # serves http://127.0.0.1:8000, docs at /docs
+python main.py                 # sobe em http://127.0.0.1:8000, docs em /docs
 ```
-- `python main.py` is the **only** path that calls `Base.metadata.create_all()` + `seed_database()` (both live in the `if __name__ == "__main__"` block, lines ~657-661). Importing the app via `uvicorn main:app` skips DB creation and seeding — don't run it that way for first boot.
-- Reset data without dropping schema: `cd backend && python limpar_banco.py` (deletes reservas, sets all assentos back to `DISPONIVEL`).
-- Full reset: delete the `.db` file, then `python main.py` re-seeds.
-- Alembic is configured (`alembic.ini`, `alembic/versions/`) but the runtime uses `create_all` for schema, not migrations. `alembic upgrade head` only matters if editing migrations.
+- `python main.py` é o **único** caminho que chama `Base.metadata.create_all()` + `seed_database()` (ambos dentro do bloco `if __name__ == "__main__"`, linhas ~657-661). Subir via `uvicorn main:app` pula a criação do banco e o seed — não use isso no primeiro boot.
+- Resetar dados sem derrubar o esquema: `cd backend && python limpar_banco.py` (apaga reservas e devolve todos os assentos para `DISPONIVEL`).
+- Reset completo: apagar o arquivo `.db` e rodar `python main.py`, que popula de novo.
+- Alembic está configurado (`alembic.ini`, `alembic/versions/`), mas o runtime cria o esquema com `create_all`, não com migrações. `alembic upgrade head` só importa ao editar migrações.
 
-### Frontend (run from `front/`)
+### Frontend (rodar a partir de `front/`)
 ```bash
 cd front
 npm install
@@ -29,55 +29,82 @@ npm run lint       # eslint .
 npm run preview
 ```
 
-No automated tests exist in either side.
+Não existem testes automatizados em nenhum dos dois lados.
 
-## Database path gotcha
+## Armadilha do caminho do banco
 
-Canonical DB is `backend/kinoplex.db`. Resolution:
-- `backend/main.py`: `BASE_DIR/kinoplex.db` → `backend/kinoplex.db` (absolute, cwd-independent). `DATABASE_URL` env var overrides if set, but `.env` no longer sets it (it used to point at `./backend/kinoplex.db`, which under cwd=`backend/` produced the stray nested `backend/backend/kinoplex.db` — that bug is fixed by dropping the var).
-- `alembic.ini`: hardcoded absolute path to `backend/kinoplex.db`.
-- `backend/limpar_banco.py`: relative `kinoplex.db`, so run it **from inside `backend/`**.
+O banco canônico é `backend/kinoplex.db`. Como cada ponto resolve o caminho:
+- `backend/main.py`: `BASE_DIR/kinoplex.db` → `backend/kinoplex.db` (absoluto, independente do cwd). A variável de ambiente `DATABASE_URL` sobrescreve se estiver definida, mas o `.env` não a define mais (antes apontava para `./backend/kinoplex.db`, o que com cwd=`backend/` gerava o aninhamento espúrio `backend/backend/kinoplex.db` — o bug foi corrigido removendo a variável).
+- `alembic.ini`: caminho absoluto fixo para `backend/kinoplex.db`.
+- `backend/limpar_banco.py`: caminho relativo `kinoplex.db`, então rode **de dentro de `backend/`**.
 
-## Migrations (Alembic)
+## Migrações (Alembic)
 
-Schema is created by `create_all` on first `python main.py`, but Alembic is the source of truth for schema *changes*. The live DB is stamped at the current head. Workflow:
+O esquema nasce do `create_all` no primeiro `python main.py`, mas o Alembic é a fonte da verdade para *mudanças* de esquema. O banco em uso está carimbado no head atual. Fluxo:
 ```bash
 venv\Scripts\activate
-python -m alembic current          # show applied revision
-python -m alembic upgrade head     # apply pending migrations
-python -m alembic downgrade -1     # roll back one
+python -m alembic current          # mostra a revisão aplicada
+python -m alembic upgrade head     # aplica migrações pendentes
+python -m alembic downgrade -1     # volta uma
 ```
-`alembic/env.py` imports `Base` from `backend/main.py` and runs with `render_as_batch=True` (required for SQLite column drops/alters). Migrations are written defensively (inspect tables/columns before altering) so they're safe whether the DB came from `create_all` or a prior migration.
+`alembic/env.py` importa `Base` de `backend/main.py` e roda com `render_as_batch=True` (necessário para remover/alterar colunas no SQLite). As migrações são escritas de forma defensiva (inspecionam tabelas e colunas antes de alterar), então funcionam tanto num banco vindo de `create_all` quanto de uma migração anterior.
 
-## Backend architecture (`backend/main.py`, single ~660-line file)
+## Arquitetura do backend (`backend/main.py`, arquivo único de ~1100 linhas)
 
-Everything (enums, ORM models, Pydantic schemas, auth helpers, business logic, all routes, seed) lives in `main.py`.
+Tudo — enums, modelos ORM, schemas Pydantic, helpers de autenticação, regras de negócio, todas as rotas e o seed — vive em `main.py`.
 
-**Models:** `UserDB`, `FilmeDB`, `SalaDB`, `SessaoDB`, `AssentoDB`, `ReservaDB`, `IngressoDB`, `PagamentoDB`. Enums: `TipoSala` (STANDARD / KINO_EVOLUTION / PLATINUM), `TipoIngresso` (INTEIRA / MEIA / ITAU_PROMO), `StatusAssento` (DISPONIVEL / OCUPADO / MANUTENCAO), `StatusPagamento`.
+**Modelos:** `UserDB`, `FilmeDB`, `SalaDB`, `SessaoDB`, `AssentoDB`, `ReservaDB`, `IngressoDB`, `PagamentoDB`. Enums: `TipoSala` (STANDARD / KINO_EVOLUTION / PLATINUM), `TipoIngresso` (INTEIRA / MEIA / ITAU_PROMO), `CategoriaMeia` (10 valores, agrupados em `convenio` e `lei` — faixas Sicoob, Estudante, Sênior, PCD/Autista, Acompanhante PCD, Professor, Outras Lei), `StatusAssento` (DISPONIVEL / OCUPADO / MANUTENCAO), `StatusPagamento`. `IngressoDB.categoria_meia` só é preenchido quando `tipo == MEIA`; o espelho no frontend é `front/src/components/meiaEntrada.ts` e os ids precisam bater.
 
-**Auth:** JWT (`python-jose`) + bcrypt hashing. `oauth2_scheme` bearer tokens; protect routes with `Depends(get_current_user)`. CORS is wide open (`allow_origins=["*"]`).
+**Autenticação:** JWT (`python-jose`) + hash bcrypt. Bearer token via `oauth2_scheme`; proteja rotas com `Depends(get_current_user)`. O CORS está totalmente aberto (`allow_origins=["*"]`).
 
-**Two core business rules:**
-1. **12-hour movie rotation** — `get_lote_filmes()` returns lote 1 (00:00–11:59) or lote 2 (12:00–23:59) from server clock; `GET /api/filmes` only returns the active lote. To see different movies, change system time or query at a different hour.
-2. **Layered pricing** — `calcular_preco_sala(preco_base, tipo_sala)` (Standard ×1.0, KinoEvolution ×1.2, Platinum ×1.5) feeds `calcular_preco_ingresso(preco_sala, tipo_ingresso)` (Inteira ×1.0, Meia ×0.5, Itaú ×0.8). Computed per-request, never stored.
+**Duas regras de negócio centrais:**
+1. **Rotação de filmes a cada 12 horas** — `get_lote_filmes()` devolve lote 1 (00:00–11:59) ou lote 2 (12:00–23:59) conforme o relógio do servidor; `GET /api/filmes` retorna apenas o lote ativo. Para ver filmes diferentes, mude a hora do sistema ou consulte em outro horário.
+2. **Preço em camadas** — `calcular_preco_sala(preco_base, tipo_sala)` (Standard ×1,0, KinoEvolution ×1,2, Platinum ×1,5) alimenta `calcular_preco_ingresso(preco_sala, tipo_ingresso)` (Inteira ×1,0, Meia ×0,5, Itaú ×0,8). Calculado a cada requisição, nunca armazenado.
 
-**Seat layout:** `criar_assentos_para_sala()` builds 8 rows (A–H) × 12 seats; corner seats of first/last row are `GRANDE`, rest `NORMAL`.
+**Layout de assentos:** `criar_assentos_para_sala()` monta 8 fileiras (A–H) × 12 assentos; os assentos de canto da primeira e da última fileira são `GRANDE`, o resto `NORMAL`.
 
-**Reservation invariant** (`POST /api/reservas`): total ticket quantity must equal number of selected seats; seats flip to `OCUPADO` on success. One reserva links N seats via the `reserva_assentos` junction table; `assento_id` is unique there, so the DB itself blocks double-booking (the commit is wrapped in `try/except IntegrityError` → HTTP 409). `GET /api/minhas-reservas` returns `assentos: string[]` (not a single `assento`).
+**Invariante da reserva** (`POST /api/reservas`): a quantidade total de ingressos precisa ser igual ao número de assentos selecionados; os assentos viram `OCUPADO` no sucesso. Uma reserva liga N assentos pela tabela de junção `reserva_assentos`; `assento_id` é único ali, então o próprio banco impede dupla marcação (o commit está envolto em `try/except IntegrityError` → HTTP 409). `GET /api/minhas-reservas` retorna `assentos: string[]` (não um único `assento`).
 
-**Note:** `WebSocket`/`WebSocketDisconnect` are imported but no websocket route is wired up yet.
+**Observação:** `WebSocket`/`WebSocketDisconnect` estão importados, mas nenhuma rota de websocket foi ligada ainda.
 
-Route map (all in main.py): `/auth/{register,login,me}`, `/api/filmes`, `/api/filmes/cartaz/{data}`, `/api/salas`, `/api/sessao/{id}`, `/api/assentos/{sessao_id}`, `/api/reservas`, `/api/minhas-reservas`, `/api/calendario/{ano}/{mes}`.
+Mapa de rotas (todas em main.py): `/auth/{register,login,me}`, `/api/filmes`, `/api/filmes/cartaz/{data}`, `/api/salas`, `/api/precos`, `/api/sessao/{id}`, `/api/assentos/{sessao_id}`, `/api/pix/cobranca`, `/api/reservas`, `/api/minhas-reservas`, `/api/calendario/{ano}/{mes}`.
 
-## Frontend architecture (`front/src/`)
+## Arquitetura do frontend (`front/src/`)
 
-Thin React SPA. Three pages carry the app:
-- `pages/Home.tsx` — landing grid of active-lote movies + calendar modal (`GET /api/calendario`).
-- `pages/SeatSelection.tsx` — the whole checkout as one 4-step state machine (`etapa`: assentos → ingressos → pagamento → sucesso). Holds selected seats, ticket counts, payment method; enforces the tickets==seats rule client-side before `POST /api/reservas`.
-- `pages/Login.tsx` — auth.
+SPA React enxuta. Três páginas sustentam a aplicação:
+- `pages/Home.tsx` — grade inicial com os filmes do lote ativo + modal de calendário (`GET /api/calendario`).
+- `pages/SeatSelection.tsx` — o checkout inteiro como uma máquina de estados de 4 etapas (`etapa`: assentos → ingressos → pagamento → sucesso). Guarda assentos escolhidos, contagem de ingressos e forma de pagamento; valida a regra ingressos==assentos no cliente antes do `POST /api/reservas`.
+- `pages/Login.tsx` — autenticação.
 
-`contexts/AuthContext.tsx` holds the logged-in user + token. `services/api.ts` is a bare axios instance hardcoded to `http://127.0.0.1:8000` (note: there's also a stale `src/api.ts` — the canonical client is `src/services/api.ts`). Routing via `react-router-dom` v7 in `App.tsx`. Tailwind v4 through `@tailwindcss/vite` (no separate config file).
+`contexts/AuthContext.tsx` guarda o usuário logado + token. `services/api.ts` é uma instância axios crua com `http://127.0.0.1:8000` fixo (atenção: existe também um `src/api.ts` obsoleto — o cliente canônico é `src/services/api.ts`). Roteamento com `react-router-dom` v7 em `App.tsx`. Tailwind v4 via `@tailwindcss/vite` (sem arquivo de config separado).
 
-## Reference docs
+## Documentos de referência
 
-`REFACTORING.md` is the most complete spec (models, endpoints, request/response examples, business flows). `SETUP_GUIDE.md` has curl examples and seed data. `CHANGELOG.md` tracks changes.
+`REFACTORING.md` é a especificação mais completa (modelos, endpoints, exemplos de requisição/resposta, fluxos de negócio). `SETUP_GUIDE.md` tem exemplos com curl e dados do seed. `CHANGELOG.md` registra as mudanças.
+
+## Estado do projeto e decisões vigentes
+
+**O que este projeto é:** peça de portfólio tratada como produto, não exercício de estudo. Ele ganha link ao vivo, como todos os outros projetos do portfólio. "Funciona na minha máquina" não é o padrão aceitável.
+
+**Onde está:** o site está essencialmente completo — catálogo (hoje e próximos dias), sessões, mapa de assentos, checkout com cartão 3D / parcelamento / PIX, aba de preços, blog, página institucional. O que falta é a **aba Totem** (`/totem`), simulação de terminal de autoatendimento. Especificação completa em **`docs/PLANO-TOTEM.md`** — leia antes de mexer em qualquer coisa relacionada ao totem.
+
+**Decisões vigentes.** Fechadas em sessão de arquitetura; não reproponha as alternativas descartadas sem um motivo novo:
+
+- **O totem é uma aba deste site** (`/totem`), não uma aplicação separada. Layout de quiosque, releitura na linguagem visual do próprio projeto em vez de cópia do terminal real.
+- **Recorte site vs totem:** o site mostra hoje e os próximos dias; o totem mostra **apenas o dia corrente** — a pessoa está fisicamente no cinema.
+- **Bomboniere sempre atrelada a um ingresso**, nunca avulsa (cinema de shopping — a praça de alimentação fica ao lado). `PagamentoDB` mantém a FK `reserva_id`.
+- **Sem tela de administração de produtos.** O catálogo vem do seed.
+- **Combos são agrupamentos com preço promocional** (`ComboDB` + itens), exibindo a economia contra a soma avulsa. O cliente não escolhe quais itens compõem o combo.
+- **Identificação no totem sem senha:** CPF ou e-mail é obrigatório, conta completa não. `ReservaDB.user_id` passa a aceitar nulo. Se o e-mail informado já pertence a um `UserDB`, a compra é vinculada e aparece em `/api/minhas-reservas`.
+- **Tipo de ingresso escolhido por assento**, numa tela que lista uma linha por poltrona selecionada (padrão `INTEIRA`), depois da escolha dos assentos.
+- **`ITAU_PROMO` é oferecido no totem**, com aviso de que o cartão Itaú precisa ser usado no pagamento — sem divergência de catálogo entre canais.
+- **Lógica compartilhada, apresentação separada.** Preço, regras de meia-entrada e disponibilidade de assentos são extraídos para hooks/módulos comuns; as telas do totem são próprias. Explicitamente **não** reaproveitados no totem: `CreditCardPreview` (cartão 3D), `PixCopiaECola` (no quiosque, PIX é QR na tela) e qualquer interação de assento que dependa de hover.
+- **Recibo com QR** ao fim da compra no totem (`qrcode` já é dependência). Sem envio por e-mail.
+
+**Lacuna conhecida no modelo:** `IngressoDB` não tem ligação com `AssentoDB` — a reserva guarda N assentos e N ingressos em listas paralelas, e só as contagens são validadas. Tipo de ingresso por assento exige fechar isso com `IngressoDB.assento_id`. Ver `docs/PLANO-TOTEM.md` §3.
+
+**Banco:** SQLite fica por enquanto; Postgres entra no fim. Isso só é barato *se o código continuar agnóstico de dialeto* — **apenas ORM, nada de SQL cru, nada de `func.strftime` ou outra função específica do SQLite**. O único ponto acoplado é `connect_args={"check_same_thread": False}` (linha ~88), que deve virar condicional ao dialeto.
+
+**Docker:** `docker compose up` sobe o projeto inteiro (backend, front, Postgres), com os mesmos Dockerfiles para desenvolvimento e deploy.
+
+**Pendência externa:** fotos do cinema real, a serem colocadas em `docs/referencias/`. Elas definem a paleta e a disposição das telas do totem, e trazem o cardápio real com preços para o seed. Até chegarem, o catálogo de bomboniere é dado provisório — isso não bloqueia nada (ver a ordem de execução no plano).

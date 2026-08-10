@@ -135,6 +135,14 @@ type TabId = 'tv' | 'movies' | 'anime';
 // Token de cor do design Kinoplekis usado em estilo inline (radial glow do hero)
 const ACCENT_GLOW = 'rgba(245,197,24,0.10)';
 
+// Nome acessível de cada modal. Sem isso o leitor de tela anuncia só "diálogo".
+// O modal de detalhes usa o título do filme, então não entra no mapa.
+const TITULO_MODAL: Record<Exclude<ModalType, null | 'detalhes'>, string> = {
+  reservas: 'modal.bookings',
+  calendario: 'nav.programacao',
+  precos: 'pricing.title',
+};
+
 // Gradientes-placeholder dos cartazes (handoff: arte real entra via <img> depois)
 const POSTER_GRADIENTS: Array<[string, string]> = [
   ['#3a1414', '#0e0707'],
@@ -215,6 +223,17 @@ export function Home() {
         .catch(() => setReservas([]));
     }
   }, [activeModal, user]);
+
+  // Esc fecha o modal aberto. Sem isso o único jeito de sair era acertar o X ou
+  // o backdrop com o mouse — nenhum caminho de teclado.
+  useEffect(() => {
+    if (!activeModal) return;
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveModal(null);
+    };
+    window.addEventListener('keydown', aoTeclar);
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, [activeModal]);
 
   // Chegou do checkout ("Ver minha reserva"): o modal já abre montado (estado
   // inicial), aqui só limpamos o state para o F5 não reabrir sozinho.
@@ -321,53 +340,53 @@ export function Home() {
   ];
 
   return (
-    <div className="min-h-screen w-full bg-[#0d0d12] text-[#eaeaea] font-sans">
+    <div className="min-h-screen w-full bg-fundo text-tinta font-sans">
 
       {/* UTILITY BAR */}
-      <div className="bg-[#08080b] border-b border-white/5">
-        <div className="max-w-[1280px] mx-auto px-8 py-[9px] flex items-center justify-between text-xs">
-          <p className="text-[#9a9aa2] m-0">
+      <div className="bg-fundo-profundo border-b border-white/5">
+        <div className="max-w-pagina mx-auto px-gutter py-2 flex items-center justify-between text-xs">
+          <p className="text-tinta-fraca m-0">
             {t('topbar.promo')} <span className="text-accent font-semibold">{t('topbar.promoAccent')}</span>
           </p>
-          <div className="flex items-center gap-[18px] text-[#9a9aa2]">
+          <div className="flex items-center gap-5 text-tinta-fraca">
             <button onClick={() => navigate('/sobre')} className="cursor-pointer transition-colors duration-150 ease-out hover:text-accent">{t('topbar.about')}</button>
             <button onClick={() => navigate('/sobre#faq')} className="cursor-pointer transition-colors duration-150 ease-out hover:text-accent">{t('topbar.faqs')}</button>
             <span className="w-px h-[13px] bg-white/12" />
-            <div className="flex gap-[13px]">
-              <button onClick={() => toast('Abrir Facebook do Kinoplekis (mock)')} className="flex cursor-pointer transition-colors duration-150 ease-out hover:text-accent"><Facebook className="w-[14px] h-[14px]" /></button>
-              <button onClick={() => toast('Abrir Twitter/X do Kinoplekis (mock)')} className="flex cursor-pointer transition-colors duration-150 ease-out hover:text-accent"><Twitter className="w-[14px] h-[14px]" /></button>
-              <button onClick={() => toast('Abrir Instagram do Kinoplekis (mock)')} className="flex cursor-pointer transition-colors duration-150 ease-out hover:text-accent"><Instagram className="w-[14px] h-[14px]" /></button>
+            <div className="flex gap-3">
+              <button onClick={() => toast('Abrir Facebook do Kinoplekis (mock)')} aria-label={t('a11y.facebook')} className="flex cursor-pointer transition-colors duration-150 ease-out hover:text-accent"><Facebook className="w-[14px] h-[14px]" /></button>
+              <button onClick={() => toast('Abrir Twitter/X do Kinoplekis (mock)')} aria-label={t('a11y.twitter')} className="flex cursor-pointer transition-colors duration-150 ease-out hover:text-accent"><Twitter className="w-[14px] h-[14px]" /></button>
+              <button onClick={() => toast('Abrir Instagram do Kinoplekis (mock)')} aria-label={t('a11y.instagram')} className="flex cursor-pointer transition-colors duration-150 ease-out hover:text-accent"><Instagram className="w-[14px] h-[14px]" /></button>
             </div>
           </div>
         </div>
       </div>
 
       {/* NAVBAR */}
-      <header className="sticky top-0 z-50 bg-[rgba(13,13,18,0.92)] backdrop-blur-[14px] border-b border-white/5">
-        <nav className="max-w-[1280px] mx-auto px-8 py-[18px] flex items-center gap-10">
+      <header className="sticky top-0 z-50 bg-fundo/92 backdrop-blur-[14px] border-b border-white/5">
+        <nav className="max-w-pagina mx-auto px-gutter py-4 flex items-center gap-10">
           {/* Logo */}
-          <div className="flex items-center gap-[11px] shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
             <span className="w-[38px] h-[38px] rounded-full bg-accent flex items-center justify-center">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0d0d12" strokeWidth="2">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-tinta)" strokeWidth="2">
                 <circle cx="12" cy="12" r="9" />
-                <circle cx="12" cy="12" r="2.4" fill="#0d0d12" />
-                <circle cx="12" cy="6" r="1.4" fill="#0d0d12" />
-                <circle cx="12" cy="18" r="1.4" fill="#0d0d12" />
-                <circle cx="6" cy="12" r="1.4" fill="#0d0d12" />
-                <circle cx="18" cy="12" r="1.4" fill="#0d0d12" />
+                <circle cx="12" cy="12" r="2.4" fill="var(--color-accent-tinta)" />
+                <circle cx="12" cy="6" r="1.4" fill="var(--color-accent-tinta)" />
+                <circle cx="12" cy="18" r="1.4" fill="var(--color-accent-tinta)" />
+                <circle cx="6" cy="12" r="1.4" fill="var(--color-accent-tinta)" />
+                <circle cx="18" cy="12" r="1.4" fill="var(--color-accent-tinta)" />
               </svg>
             </span>
             <span className="font-extrabold text-[22px] tracking-[-0.02em] text-white">Kinoplekis</span>
           </div>
 
           {/* Links */}
-          <div className="hidden lg:flex items-center gap-[22px] text-[13.5px] font-semibold tracking-[0.02em]">
+          <div className="hidden lg:flex items-center gap-6 text-[13.5px] font-semibold tracking-[0.02em]">
             {navItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => handleNav(item.id)}
                 className={`inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors duration-150 ease-out hover:text-accent ${
-                  activeNav === item.id ? 'text-accent' : 'text-[#cfcfd6]'
+                  activeNav === item.id ? 'text-accent' : 'text-tinta-suave'
                 }`}
               >
                 {item.icon}{item.label}
@@ -376,16 +395,16 @@ export function Home() {
           </div>
 
           {/* Right cluster */}
-          <div className="ml-auto flex items-center gap-[18px]">
+          <div className="ml-auto flex items-center gap-5">
             <div className="relative hidden sm:block">
               <input
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder={t('nav.searchPlaceholder')}
-                className="bg-[#16161d] border border-white/[0.06] rounded-full py-2.5 pl-[18px] pr-10 text-[12.5px] text-[#e8e8e8] placeholder:text-[#7a7a84] w-[200px] outline-none transition-[width,border-color] duration-200 ease-out focus:w-[240px] focus:border-[rgba(245,197,24,0.45)]"
+                className="bg-superficie border border-white/[0.06] rounded-full py-2.5 pl-5 pr-10 text-[12.5px] text-tinta placeholder:text-tinta-fraca w-[200px] outline-none transition-[width,border-color] duration-200 ease-out focus:w-[240px] focus:border-[rgba(245,197,24,0.45)]"
               />
               <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-accent flex items-center justify-center">
-                <Search className="w-[13px] h-[13px] text-[#0d0d12]" strokeWidth={2.4} />
+                <Search className="w-[13px] h-[13px] text-accent-tinta" strokeWidth={2.4} />
               </span>
             </div>
             {/* Seletor de idioma (i18n): dropdown PT/EN, mostra o ativo, sem reload */}
@@ -393,7 +412,7 @@ export function Home() {
               <button
                 onClick={() => setLangMenuOpen(o => !o)}
                 onBlur={() => setTimeout(() => setLangMenuOpen(false), 120)}
-                className="flex items-center gap-1.5 text-[#bdbdc4] text-[12.5px] font-semibold cursor-pointer transition-colors duration-150 ease-out hover:text-accent"
+                className="flex items-center gap-1.5 text-tinta-suave text-[12.5px] font-semibold cursor-pointer transition-colors duration-150 ease-out hover:text-accent"
               >
                 <Flag code={lang} />
                 {LANGUAGES.find(l => l.code === lang)?.label}
@@ -406,14 +425,14 @@ export function Home() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.96 }}
                     transition={{ duration: 0.15, ease: 'easeOut' }}
-                    className="absolute right-0 top-[calc(100%+10px)] z-50 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#14141a] shadow-[0_12px_30px_rgba(0,0,0,0.5)]"
+                    className="absolute right-0 top-[calc(100%+10px)] z-50 w-44 overflow-hidden rounded-xl border border-white/10 bg-superficie shadow-[0_12px_30px_rgba(0,0,0,0.5)]"
                   >
                     {LANGUAGES.map(l => (
                       <button
                         key={l.code}
                         onMouseDown={() => { setLang(l.code); setLangMenuOpen(false); }}
                         className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[12.5px] font-semibold text-left transition-colors duration-150 ease-out hover:bg-white/5 ${
-                          lang === l.code ? 'text-accent' : 'text-[#bdbdc4]'
+                          lang === l.code ? 'text-accent' : 'text-tinta-suave'
                         }`}
                       >
                         <Flag code={l.code} />
@@ -428,7 +447,7 @@ export function Home() {
             </div>
             <button
               onClick={() => navigate('/login')}
-              className="border-[1.5px] border-accent text-accent bg-transparent px-[22px] py-[9px] rounded-full text-[12.5px] font-bold tracking-[0.06em] cursor-pointer transition-all duration-200 ease-out hover:bg-accent hover:text-[#0d0d12] hover:shadow-[0_8px_22px_rgba(245,197,24,0.45)]"
+              className="border-[1.5px] border-accent text-accent bg-transparent px-6 py-2 rounded-full text-[12.5px] font-bold tracking-[0.06em] cursor-pointer transition-all duration-200 ease-out hover:bg-accent hover:text-accent-tinta hover:shadow-[0_8px_22px_rgba(245,197,24,0.45)]"
             >
               {user ? (user.nome ?? t('nav.account')).toUpperCase() : t('nav.signin')}
             </button>
@@ -438,7 +457,7 @@ export function Home() {
 
       {/* HERO */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 z-0 bg-[#0d0d12]">
+        <div className="absolute inset-0 z-0 bg-fundo">
           <div
             className="absolute inset-0 opacity-60"
             style={{ backgroundImage: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 132px), repeating-linear-gradient(rgba(255,255,255,0.03) 0 1px, transparent 1px 188px)' }}
@@ -447,25 +466,25 @@ export function Home() {
             className="absolute -top-[10%] -right-[5%] w-[620px] h-[620px] pointer-events-none"
             style={{ background: `radial-gradient(circle, ${ACCENT_GLOW}, transparent 65%)` }}
           />
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, #0d0d12 6%, transparent 60%)' }} />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, var(--color-fundo) 6%, transparent 60%)' }} />
         </div>
 
-        <div className="relative z-10 max-w-[1280px] mx-auto px-8 pt-[92px] pb-[110px] grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-12 items-center">
+        <div className="relative z-10 max-w-pagina mx-auto px-gutter pt-24 pb-28 grid grid-cols-1 lg:grid-cols-[1.05fr_0.95fr] gap-12 items-center">
           <motion.div initial="hidden" animate="visible" variants={stagger}>
             <motion.p variants={fadeUp} className="text-accent font-bold text-base m-0 mb-3.5">Kinoplekis</motion.p>
-            <motion.h1 variants={fadeUp} className="text-[44px] sm:text-[62px] leading-[1.06] font-extrabold tracking-[-0.02em] text-white m-0 mb-[26px]">
+            <motion.h1 variants={fadeUp} className="text-[44px] sm:text-[62px] leading-[1.06] font-extrabold tracking-[-0.02em] text-white m-0 mb-6">
               {t('hero.titleA')}<span className="text-accent">{t('hero.titleAccent')}</span>{t('hero.titleB')}
             </motion.h1>
-            <motion.div variants={fadeUp} className="flex items-center flex-wrap gap-3.5 mb-[38px]">
-              <span className="bg-[#1c1c24] text-[#cfcfd6] text-[11px] font-bold px-2.5 py-[5px] rounded-[5px] tracking-[0.04em]">
+            <motion.div variants={fadeUp} className="flex items-center flex-wrap gap-3.5 mb-10">
+              <span className="bg-superficie-alta text-tinta-suave text-[11px] font-bold px-2.5 py-1 rounded-chip tracking-[0.04em]">
                 {featuredMovie?.classificacao ?? 'PG 18'}
               </span>
-              <span className="bg-[#1c1c24] text-[#cfcfd6] text-[11px] font-bold px-2.5 py-[5px] rounded-[5px]">HD</span>
-              <span className="text-[#bdbdc4] text-[13.5px] font-medium">{featuredMovie?.genero ?? t('hero.genre')}</span>
-              <span className="flex items-center gap-1.5 text-[#bdbdc4] text-[13.5px] font-medium">
+              <span className="bg-superficie-alta text-tinta-suave text-[11px] font-bold px-2.5 py-1 rounded-chip">HD</span>
+              <span className="text-tinta-suave text-[13.5px] font-medium">{featuredMovie?.genero ?? t('hero.genre')}</span>
+              <span className="flex items-center gap-1.5 text-tinta-suave text-[13.5px] font-medium">
                 <CalendarIcon className="w-3.5 h-3.5 text-accent" />{new Date().getFullYear()}
               </span>
-              <span className="flex items-center gap-1.5 text-[#bdbdc4] text-[13.5px] font-medium">
+              <span className="flex items-center gap-1.5 text-tinta-suave text-[13.5px] font-medium">
                 <Clock className="w-3.5 h-3.5 text-accent" />{featuredMovie?.duracao ?? t('hero.duration')}
               </span>
             </motion.div>
@@ -487,15 +506,15 @@ export function Home() {
             className="relative"
           >
             <div className="relative border-[3px] border-accent rounded-lg p-2.5 shadow-[0_30px_70px_rgba(0,0,0,0.55)]">
-              <div className="aspect-[4/3] rounded relative overflow-hidden" style={{ background: 'linear-gradient(150deg, #2a2230, #14141a)' }}>
+              <div className="aspect-[4/3] rounded relative overflow-hidden" style={{ background: 'linear-gradient(150deg, #2a2230, var(--color-superficie))' }}>
                 <div className="absolute inset-0" style={{ backgroundImage: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.04) 0 10px, transparent 10px 20px)' }} />
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6a6a74" strokeWidth="1.4">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--color-tinta-fraca)" strokeWidth="1.4">
                     <rect x="3" y="3" width="18" height="18" rx="2" />
                     <circle cx="8.5" cy="8.5" r="1.8" />
                     <path d="M21 15l-5-5L5 21" />
                   </svg>
-                  <span className="font-mono text-[11px] text-[#7a7a84] tracking-[0.05em]">FOTO EM DESTAQUE</span>
+                  <span className="font-mono text-[11px] text-tinta-fraca tracking-[0.05em]">FOTO EM DESTAQUE</span>
                 </div>
               </div>
             </div>
@@ -504,51 +523,51 @@ export function Home() {
       </section>
 
       {/* NEW RELEASE MOVIES */}
-      <section id="releases" className="max-w-[1280px] mx-auto px-8 pt-2 pb-20">
-        <div className="flex items-end justify-between mb-[30px] flex-wrap gap-[18px]">
+      <section id="releases" className="max-w-pagina mx-auto px-gutter pt-2 pb-20">
+        <div className="flex items-end justify-between mb-8 flex-wrap gap-5">
           <div>
             <p className="text-accent text-xs font-bold tracking-[0.22em] uppercase m-0 mb-2">{t('releases.eyebrow')}</p>
             <h2 className="text-[32px] font-extrabold tracking-[-0.01em] text-white m-0">{t('releases.title')}</h2>
-            <span className="block w-12 h-[3px] bg-accent rounded-[3px] mt-3" />
+            <span className="block w-12 h-[3px] bg-accent rounded-full mt-3" />
           </div>
           <div className="flex items-center gap-2.5">
             {tabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => { setActiveTab(tab.id); toast(`Filtrar por "${tab.label}" (categoria mock — backend ainda não separa por tipo)`); }}
-                className={`px-5 py-[9px] rounded-full text-[12.5px] font-semibold cursor-pointer transition-all duration-150 ease-out border ${
+                className={`px-5 py-2 rounded-full text-[12.5px] font-semibold cursor-pointer transition-all duration-150 ease-out border ${
                   activeTab === tab.id
-                    ? 'bg-accent text-[#0d0d12] border-accent'
-                    : 'bg-transparent text-[#bdbdc4] border-white/[0.14] hover:border-[rgba(245,197,24,0.45)]'
+                    ? 'bg-accent text-accent-tinta border-accent'
+                    : 'bg-transparent text-tinta-suave border-white/[0.14] hover:border-[rgba(245,197,24,0.45)]'
                 }`}
               >
                 {tab.label}
               </button>
             ))}
             <span className="w-px h-7 bg-white/10 mx-1" />
-            <button onClick={() => toast('Carrossel: filmes anteriores (mock)')} className="w-[38px] h-[38px] rounded-full border border-white/12 bg-transparent text-[#bdbdc4] cursor-pointer flex items-center justify-center transition-all duration-150 ease-out hover:border-accent hover:text-accent active:scale-90">
+            <button onClick={() => toast('Carrossel: filmes anteriores (mock)')} aria-label={t('a11y.prevMovies')} className="w-[38px] h-[38px] rounded-full border border-white/12 bg-transparent text-tinta-suave cursor-pointer flex items-center justify-center transition-all duration-150 ease-out hover:border-accent hover:text-accent active:scale-90">
               <ChevronLeft className="w-4 h-4" strokeWidth={2.2} />
             </button>
-            <button onClick={() => toast('Carrossel: próximos filmes (mock)')} className="w-[38px] h-[38px] rounded-full border border-accent bg-accent text-[#0d0d12] cursor-pointer flex items-center justify-center transition-all duration-150 ease-out hover:shadow-[0_8px_20px_rgba(245,197,24,0.45)] active:scale-90">
+            <button onClick={() => toast('Carrossel: próximos filmes (mock)')} aria-label={t('a11y.nextMovies')} className="w-[38px] h-[38px] rounded-full border border-accent bg-accent text-accent-tinta cursor-pointer flex items-center justify-center transition-all duration-150 ease-out hover:shadow-[0_8px_20px_rgba(245,197,24,0.45)] active:scale-90">
               <ChevronRight className="w-4 h-4" strokeWidth={2.2} />
             </button>
           </div>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-[22px]">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
             {[0, 1, 2, 3, 4].map(i => (
-              <div key={i} className="aspect-[3/4] bg-[#14141a] border border-white/5 rounded-xl animate-pulse" />
+              <div key={i} className="aspect-[3/4] bg-superficie border border-white/5 rounded-xl animate-pulse" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex justify-center py-[50px]">
+          <div className="flex justify-center py-12">
             <p className="text-[#666] text-[15px] font-medium m-0">{t('grid.empty')}</p>
           </div>
         ) : (
           <motion.div
             initial="hidden" animate="visible" variants={stagger}
-            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-[22px]"
+            className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6"
           >
             {filtered.map((filme, i) => {
               const [c1, c2] = POSTER_GRADIENTS[i % POSTER_GRADIENTS.length];
@@ -560,11 +579,11 @@ export function Home() {
                   whileHover={{ y: -8 }}
                   transition={{ duration: 0.2, ease: [0.22, 0.61, 0.36, 1] }}
                   onClick={() => { setSelectedMovie(filme); setActiveModal('detalhes'); }}
-                  className="bg-[#14141a] border border-white/5 rounded-xl overflow-hidden cursor-pointer hover:border-[rgba(245,197,24,0.45)] hover:shadow-[0_22px_44px_rgba(0,0,0,0.5)] transition-[border-color,box-shadow] duration-200 ease-out"
+                  className="bg-superficie border border-white/5 rounded-xl overflow-hidden cursor-pointer hover:border-[rgba(245,197,24,0.45)] hover:shadow-[0_22px_44px_rgba(0,0,0,0.5)] transition-[border-color,box-shadow] duration-200 ease-out"
                 >
                   <div
                     className="relative w-full aspect-[3/4] overflow-hidden"
-                    style={{ background: `linear-gradient(158deg, ${c1} 0%, ${c2} 70%, #0e0e13 100%)` }}
+                    style={{ background: `linear-gradient(158deg, ${c1} 0%, ${c2} 70%, var(--color-fundo) 100%)` }}
                   >
                     <div className="absolute inset-0" style={{ backgroundImage: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.045) 0 1px, transparent 1px 26px)' }} />
                     <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55), transparent 60%)' }} />
@@ -575,14 +594,14 @@ export function Home() {
                     </div>
                   </div>
                   <div className="px-3.5 pt-4 pb-1.5 text-center">
-                    <div className="flex justify-center gap-[3px] mb-2.5 text-accent">
+                    <div className="flex justify-center gap-1 mb-2.5 text-accent">
                       {[0, 1, 2, 3, 4].map(s => <Star key={s} className="w-3 h-3 fill-accent" />)}
                     </div>
-                    <h3 className="text-white font-bold text-[15px] m-0 mb-[3px] truncate">{filme.titulo}</h3>
-                    <p className="text-[#8a8a92] text-[12.5px] m-0 mb-3.5">{filme.genero ?? t('card.genre')}</p>
+                    <h3 className="text-white font-bold text-[15px] m-0 mb-1 truncate">{filme.titulo}</h3>
+                    <p className="text-tinta-fraca text-[12.5px] m-0 mb-3.5">{filme.genero ?? t('card.genre')}</p>
                   </div>
-                  <div className="border-t border-white/5 px-3.5 py-[11px] flex items-center justify-center gap-3 text-[11.5px] text-[#9a9aa2] bg-[#101015]">
-                    <span className="font-bold text-[#cfcfd6]">HD</span>
+                  <div className="border-t border-white/5 px-3.5 py-3 flex items-center justify-center gap-3 text-[11.5px] text-tinta-fraca bg-fundo">
+                    <span className="font-bold text-tinta-suave">HD</span>
                     <span className="w-px h-[11px] bg-white/12" />
                     <span>{t('card.lang')}</span>
                     <span className="w-px h-[11px] bg-white/12" />
@@ -596,20 +615,20 @@ export function Home() {
       </section>
 
       {/* OUR SERVICES / DOWNLOAD */}
-      <section className="bg-[#0a0a0e] border-t border-white/5">
-        <div className="max-w-[1280px] mx-auto px-8 py-[74px] grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr] gap-16 items-center">
-          <div className="relative bg-accent rounded-md p-[26px]">
-            <span className="absolute top-[18px] right-[18px] bg-[#0d0d12] text-white text-xs font-bold px-3 py-[5px] rounded-[5px]">{t('services.price')}</span>
-            <div className="bg-white rounded aspect-square flex flex-col items-center justify-end p-[30px]">
+      <section className="bg-fundo-profundo border-t border-white/5">
+        <div className="max-w-pagina mx-auto px-gutter py-18 grid grid-cols-1 lg:grid-cols-[0.85fr_1.15fr] gap-16 items-center">
+          <div className="relative bg-accent rounded-md p-6">
+            <span className="absolute top-[18px] right-[18px] bg-fundo text-white text-xs font-bold px-3 py-1 rounded-chip">{t('services.price')}</span>
+            <div className="bg-white rounded aspect-square flex flex-col items-center justify-end p-8">
               <div className="flex-1 flex items-center justify-center">
-                <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#0d0d12" strokeWidth="1.4">
+                <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="var(--color-fundo)" strokeWidth="1.4">
                   <circle cx="8" cy="12" r="3.4" />
                   <circle cx="16" cy="12" r="3.4" />
                   <path d="M11.4 12h1.2M2 11l2-2M22 11l-2-2" />
                 </svg>
               </div>
-              <p className="m-0 font-semibold text-[18px] text-[#0d0d12] self-start">{t('services.resLabel')}</p>
-              <p className="m-0 font-extrabold text-[36px] text-[#0d0d12] self-start tracking-[-0.02em]">{t('services.resTitle')}</p>
+              <p className="m-0 font-semibold text-[18px] text-accent-tinta self-start">{t('services.resLabel')}</p>
+              <p className="m-0 font-extrabold text-[36px] text-accent-tinta self-start tracking-[-0.02em]">{t('services.resTitle')}</p>
             </div>
           </div>
 
@@ -617,8 +636,8 @@ export function Home() {
             <p className="flex items-center gap-2.5 text-accent text-xs font-bold tracking-[0.22em] uppercase m-0 mb-3.5">
               <span className="w-[22px] h-0.5 bg-accent" />{t('services.eyebrow')}
             </p>
-            <h2 className="text-[34px] font-extrabold leading-[1.15] text-white m-0 mb-[18px] whitespace-pre-line">{t('services.title')}</h2>
-            <p className="text-[#9a9aa2] text-sm leading-[1.7] max-w-[520px] m-0 mb-[30px]">
+            <h2 className="text-[34px] font-extrabold leading-[1.15] text-white m-0 mb-5 whitespace-pre-line">{t('services.title')}</h2>
+            <p className="text-tinta-fraca text-sm leading-[1.7] max-w-[520px] m-0 mb-8">
               {t('services.desc')}
             </p>
             <div className="flex flex-col gap-5">
@@ -627,8 +646,8 @@ export function Home() {
                   <MonitorPlay className="w-5 h-5 text-accent" strokeWidth={1.7} />
                 </span>
                 <div>
-                  <h4 className="m-0 mb-[5px] text-white text-base font-bold">{t('services.feature1.title')}</h4>
-                  <p className="m-0 text-[#9a9aa2] text-[13px] leading-[1.6] max-w-[480px]">{t('services.feature1.desc')}</p>
+                  <h4 className="m-0 mb-1 text-white text-base font-bold">{t('services.feature1.title')}</h4>
+                  <p className="m-0 text-tinta-fraca text-[13px] leading-[1.6] max-w-[480px]">{t('services.feature1.desc')}</p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
@@ -636,8 +655,8 @@ export function Home() {
                   <DownloadCloud className="w-5 h-5 text-accent" strokeWidth={1.7} />
                 </span>
                 <div>
-                  <h4 className="m-0 mb-[5px] text-white text-base font-bold">{t('services.feature2.title')}</h4>
-                  <p className="m-0 text-[#9a9aa2] text-[13px] leading-[1.6] max-w-[480px]">{t('services.feature2.desc')}</p>
+                  <h4 className="m-0 mb-1 text-white text-base font-bold">{t('services.feature2.title')}</h4>
+                  <p className="m-0 text-tinta-fraca text-[13px] leading-[1.6] max-w-[480px]">{t('services.feature2.desc')}</p>
                 </div>
               </div>
             </div>
@@ -665,6 +684,13 @@ export function Home() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.97, y: 20 }}
               transition={{ duration: 0.22, type: 'tween', ease: 'easeOut' }}
+              role="dialog"
+              aria-modal="true"
+              aria-label={
+                activeModal === 'detalhes'
+                  ? selectedMovie?.titulo
+                  : t(TITULO_MODAL[activeModal])
+              }
               className={`relative w-full overflow-hidden rounded-3xl will-change-transform ${
                 activeModal === 'precos' ? 'max-w-4xl' : 'max-w-lg'
               }`}
@@ -688,7 +714,7 @@ export function Home() {
                       <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">{t('modal.account')}</p>
                       <h2 className="text-2xl font-black text-white">{t('modal.bookings')}</h2>
                     </div>
-                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-colors duration-150 ease-out active:scale-90 hover:bg-white/10">
+                    <button onClick={() => setActiveModal(null)} aria-label={t('a11y.close')} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-colors duration-150 ease-out active:scale-90 hover:bg-white/10">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -697,7 +723,7 @@ export function Home() {
                       <div className="text-center py-12">
                         <Ticket className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
                         <p className="text-zinc-400 mb-2 font-semibold">{t('bookings.loginPrompt')}</p>
-                        <button onClick={() => { setActiveModal(null); navigate('/login'); }} className="bg-accent text-[#0d0d12] px-6 py-2.5 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity duration-150 ease-out active:scale-95">
+                        <button onClick={() => { setActiveModal(null); navigate('/login'); }} className="bg-accent text-accent-tinta px-6 py-2.5 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity duration-150 ease-out active:scale-95">
                           {t('bookings.login')}
                         </button>
                       </div>
@@ -811,7 +837,7 @@ export function Home() {
                         ><ChevronRight className="w-5 h-5" /></button>
                       </div>
                     </div>
-                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-colors duration-150 ease-out active:scale-90 hover:bg-white/10">
+                    <button onClick={() => setActiveModal(null)} aria-label={t('a11y.close')} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-colors duration-150 ease-out active:scale-90 hover:bg-white/10">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -842,7 +868,7 @@ export function Home() {
                               if (!isPast) setSelectedCalDay(day);
                             }}
                             className={`relative aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-bold transition-colors duration-150 ease-out active:scale-90 ${isSelected && !isPast
-                              ? 'bg-accent text-[#0d0d12] shadow-lg shadow-accent/30'
+                              ? 'bg-accent text-accent-tinta shadow-lg shadow-accent/30'
                               : isToday
                                 ? 'text-white shadow-xl ring-2 ring-accent/50'
                                 : isPast
@@ -931,7 +957,7 @@ export function Home() {
                       <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">{t('modal.pricing')}</p>
                       <h2 className="text-2xl font-black text-white">{t('pricing.title')}</h2>
                     </div>
-                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-colors duration-150 ease-out active:scale-90 hover:bg-white/10">
+                    <button onClick={() => setActiveModal(null)} aria-label={t('a11y.close')} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-colors duration-150 ease-out active:scale-90 hover:bg-white/10">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -1121,7 +1147,7 @@ export function Home() {
                       <p className="text-[10px] font-black uppercase tracking-widest mb-1 text-accent">{t('modal.about')}</p>
                       <h2 className="text-2xl font-black text-white">{selectedMovie.titulo}</h2>
                     </div>
-                    <button onClick={() => setActiveModal(null)} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-colors duration-150 ease-out active:scale-90 hover:bg-white/10">
+                    <button onClick={() => setActiveModal(null)} aria-label={t('a11y.close')} className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white rounded-lg transition-colors duration-150 ease-out active:scale-90 hover:bg-white/10">
                       <X className="w-4 h-4" />
                     </button>
                   </div>
@@ -1155,7 +1181,7 @@ export function Home() {
                     {selectedMovie.sessoes?.length > 0 && (
                       <button
                         onClick={() => { setActiveModal(null); navigate(`/sessao/${selectedMovie.sessoes[0].id}`); }}
-                        className="w-full bg-accent text-[#0d0d12] font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity duration-150 ease-out active:scale-[0.98]"
+                        className="w-full bg-accent text-accent-tinta font-bold py-3 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity duration-150 ease-out active:scale-[0.98]"
                       >
                         <Play className="w-4 h-4 fill-current" />{t('details.buy')}
                       </button>

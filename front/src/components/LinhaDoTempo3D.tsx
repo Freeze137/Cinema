@@ -122,8 +122,8 @@ export function LinhaDoTempo3D({ marcos, labels }: Props) {
                 transition={{ duration: 0.42, ease: EASE }}
                 className={`absolute left-1/2 top-1/2 w-[330px] -translate-x-1/2 -translate-y-1/2 rounded-2xl border p-6 text-left ${
                   eAtivo
-                    ? 'border-accent/40 bg-[#16161d] shadow-[0_30px_70px_rgba(0,0,0,0.55)]'
-                    : 'border-white/8 bg-[#101015] cursor-pointer'
+                    ? 'border-accent/40 bg-superficie shadow-[0_30px_70px_rgba(0,0,0,0.55)]'
+                    : 'border-white/8 bg-fundo cursor-pointer'
                 }`}
                 style={{
                   transformStyle: 'preserve-3d',

@@ -65,7 +65,9 @@ export function PixCopiaECola({ sessaoId, ingressos }: Props) {
           margin: 1,
           width: 320,
           errorCorrectionLevel: 'M',
-          color: { dark: '#0f0f13', light: '#ffffff' },
+          // A lib gera o PNG fora do DOM e não resolve var(); precisa do hex
+          // literal. Manter alinhado com --color-fundo do index.css.
+          color: { dark: '#0d0d12', light: '#ffffff' },
         });
         if (!ativo) return;
         setCobranca(data);

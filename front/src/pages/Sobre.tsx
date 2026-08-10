@@ -45,7 +45,7 @@ function Cabecalho({ onVoltar, label }: { onVoltar: () => void; label: string })
   const { lang, setLang } = useLanguage();
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-[rgba(13,13,18,0.92)]">
-      <div className="mx-auto flex max-w-[1180px] items-center justify-between px-6 py-4">
+      <div className="mx-auto flex max-w-pagina items-center justify-between px-gutter py-4">
         <button
           onClick={onVoltar}
           className="group flex cursor-pointer items-center gap-2 text-[13px] font-bold text-zinc-400 transition-colors duration-150 ease-out hover:text-accent active:scale-95"
@@ -145,7 +145,7 @@ export function Sobre() {
   ];
 
   return (
-    <div className="min-h-screen w-full bg-[#0d0d12] font-sans text-[#eaeaea]">
+    <div className="min-h-screen w-full bg-fundo font-sans text-tinta">
       <Cabecalho onVoltar={() => navigate('/')} label={t('about.back')} />
 
       {/* HERO */}
@@ -168,7 +168,7 @@ export function Sobre() {
             WebkitMaskImage: 'linear-gradient(to top, black, transparent)',
           }}
         />
-        <div className="relative mx-auto max-w-[1180px] px-6 py-20 lg:py-28">
+        <div className="relative mx-auto max-w-pagina px-gutter py-20 lg:py-28">
           <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE }}>
             <span className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-accent">
               <Sparkles className="h-3 w-3" />
@@ -201,7 +201,7 @@ export function Sobre() {
       </section>
 
       {/* HISTÓRIA */}
-      <section className="mx-auto max-w-[1180px] px-6 py-20">
+      <section className="mx-auto max-w-pagina px-gutter py-20">
         <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-accent">{t('about.storyKicker')}</h2>
         <p className="mt-3 max-w-2xl text-[clamp(24px,3.2vw,34px)] font-black leading-tight tracking-tight text-white">
           {t('about.storyTitle')}
@@ -219,8 +219,8 @@ export function Sobre() {
       </section>
 
       {/* AS SALAS */}
-      <section className="border-y border-white/5 bg-[#0a0a0e]">
-        <div className="mx-auto max-w-[1180px] px-6 py-20" style={{ perspective: PERSPECTIVA }}>
+      <section className="border-y border-white/5 bg-fundo-profundo">
+        <div className="mx-auto max-w-pagina px-gutter py-20" style={{ perspective: PERSPECTIVA }}>
           <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-accent">{t('about.roomsKicker')}</h2>
           <p className="mt-3 max-w-2xl text-[clamp(24px,3.2vw,34px)] font-black leading-tight tracking-tight text-white">
             {t('about.roomsTitle')}
@@ -240,10 +240,10 @@ export function Sobre() {
                   className="group"
                 >
                   <Tilt3D intensidade={9} className="h-full">
-                    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/8 bg-[#14141a] transition-colors duration-200 ease-out group-hover:border-accent/45">
+                    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/8 bg-superficie transition-colors duration-200 ease-out group-hover:border-accent/45">
                       <div
                         className="relative aspect-[16/9] w-full overflow-hidden"
-                        style={{ background: `linear-gradient(150deg, ${c1} 0%, ${c2} 72%, #0a0a0e 100%)`, transformStyle: 'preserve-3d' }}
+                        style={{ background: `linear-gradient(150deg, ${c1} 0%, ${c2} 72%, var(--color-fundo-profundo) 100%)`, transformStyle: 'preserve-3d' }}
                       >
                         <div
                           className="absolute inset-0"
@@ -279,7 +279,7 @@ export function Sobre() {
       </section>
 
       {/* VALORES */}
-      <section className="mx-auto max-w-[1180px] px-6 py-20">
+      <section className="mx-auto max-w-pagina px-gutter py-20">
         <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-accent">{t('about.valuesKicker')}</h2>
         <p className="mt-3 max-w-2xl text-[clamp(24px,3.2vw,34px)] font-black leading-tight tracking-tight text-white">
           {t('about.valuesTitle')}
@@ -303,8 +303,8 @@ export function Sobre() {
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="border-t border-white/5 bg-[#0a0a0e] scroll-mt-20">
-        <div className="mx-auto max-w-[860px] px-6 py-20">
+      <section id="faq" className="border-t border-white/5 bg-fundo-profundo scroll-mt-20">
+        <div className="mx-auto max-w-leitura px-gutter py-20">
           <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-accent">{t('about.faqKicker')}</h2>
           <p className="mt-3 text-[clamp(24px,3.2vw,34px)] font-black leading-tight tracking-tight text-white">
             {t('about.faqTitle')}
@@ -324,7 +324,7 @@ export function Sobre() {
 
       {/* CONTATO — última seção, logo abaixo do FAQ */}
       <section id="contato" className="border-t border-white/5 scroll-mt-20">
-        <div className="mx-auto max-w-[1180px] px-6 py-20">
+        <div className="mx-auto max-w-pagina px-gutter py-20">
           <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-accent">{t('about.contactKicker')}</h2>
           <p className="mt-3 max-w-2xl text-[clamp(24px,3.2vw,34px)] font-black leading-tight tracking-tight text-white">
             {t('about.contactTitle')}
@@ -364,7 +364,7 @@ export function Sobre() {
             <p className="text-[13.5px] leading-relaxed text-zinc-300">{t('about.disclaimer')}</p>
             <button
               onClick={() => navigate('/blog')}
-              className="mt-4 cursor-pointer rounded-full bg-accent px-5 py-2.5 text-[12px] font-black uppercase tracking-[0.06em] text-[#0d0d12] transition-transform duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+              className="mt-4 cursor-pointer rounded-full bg-accent px-5 py-2.5 text-[12px] font-black uppercase tracking-[0.06em] text-accent-tinta transition-transform duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
             >
               {t('about.readBlog')}
             </button>

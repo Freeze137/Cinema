@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-10T00:00:00.000Z",
+  "title": "Design System: Kinoplekis",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Amarelo Marquise",
+        "canonical": "#F5C518",
+        "tonalRamp": ["#2b2204", "#4d3d07", "#70590a", "#94750d", "#b89211", "#dcaf14", "#f5c518", "#fbe08a"]
+      },
+      "accent-tinta": {
+        "role": "primary",
+        "displayName": "Tinta sobre Marquise",
+        "canonical": "#0d0d12",
+        "tonalRamp": ["#000000", "#06060a", "#0d0d12", "#14141a", "#1c1c24", "#2a2a34", "#3a3a46", "#4d4d5c"]
+      },
+      "fundo": {
+        "role": "neutral",
+        "displayName": "Preto de Sala",
+        "canonical": "#0d0d12",
+        "tonalRamp": ["#000000", "#06060a", "#0a0a0e", "#0d0d12", "#14141a", "#1c1c24", "#2a2a34", "#3a3a46"]
+      },
+      "fundo-profundo": {
+        "role": "neutral",
+        "displayName": "Preto de Fosso",
+        "canonical": "#0a0a0e",
+        "tonalRamp": ["#000000", "#040406", "#0a0a0e", "#101015", "#16161d", "#1e1e26", "#2c2c36", "#3c3c48"]
+      },
+      "superficie": {
+        "role": "neutral",
+        "displayName": "Grafite de Poltrona",
+        "canonical": "#14141a",
+        "tonalRamp": ["#08080b", "#0e0e13", "#14141a", "#1c1c24", "#26262f", "#33333e", "#45454f", "#5c5c68"]
+      },
+      "superficie-alta": {
+        "role": "neutral",
+        "displayName": "Grafite Alto",
+        "canonical": "#1c1c24",
+        "tonalRamp": ["#0a0a0e", "#12121a", "#1c1c24", "#26262f", "#32323c", "#41414c", "#55555f", "#6d6d77"]
+      },
+      "tinta": {
+        "role": "neutral",
+        "displayName": "Tinta",
+        "canonical": "#eaeaea",
+        "tonalRamp": ["#242424", "#3d3d3d", "#5a5a5a", "#7a7a7a", "#9c9c9c", "#c0c0c0", "#eaeaea", "#f7f7f7"]
+      },
+      "tinta-suave": {
+        "role": "neutral",
+        "displayName": "Tinta Suave",
+        "canonical": "#bdbdc4",
+        "tonalRamp": ["#1e1e22", "#33333a", "#4c4c55", "#676771", "#85858f", "#a1a1ab", "#bdbdc4", "#dcdce1"]
+      },
+      "tinta-fraca": {
+        "role": "neutral",
+        "displayName": "Tinta Fraca",
+        "canonical": "#9a9aa2",
+        "tonalRamp": ["#1a1a1e", "#2c2c32", "#42424a", "#5a5a63", "#75757e", "#8a8a93", "#9a9aa2", "#c2c2c9"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Só o título do herói. Um por página, nunca dois." },
+      "headline": { "displayName": "Headline", "purpose": "Título de seção e cabeçalho de modal." },
+      "title": { "displayName": "Title", "purpose": "Nome de filme no card, rótulo de botão, item de navegação." },
+      "body": { "displayName": "Body", "purpose": "Sinopse, blog, FAQ. Coluna limitada a 760px (~70ch)." },
+      "label": { "displayName": "Label", "purpose": "Selo, categoria, período. Único papel em caixa alta." }
+    },
+    "shadows": [
+      { "name": "elevacao-cartaz", "value": "0 30px 70px rgba(0,0,0,0.55)", "purpose": "Card de filme em destaque ou selecionado. Queda longa e difusa, spot alto de saguão." },
+      { "name": "elevacao-painel", "value": "0 22px 44px rgba(0,0,0,0.5)", "purpose": "Superfície flutuante de porte médio." },
+      { "name": "brilho-marquise", "value": "0 8px 20px rgba(245,197,24,0.45)", "purpose": "Exclusivo de ação primária em hover. Nunca em superfície neutra." }
+    ],
+    "motion": [
+      { "name": "ease-estado", "value": "cubic-bezier(0, 0, 0.2, 1)", "purpose": "ease-out em 150ms. Padrão de mudança de estado — 78 usos no código." },
+      { "name": "duracao-estado", "value": "150ms", "purpose": "Hover, cor, borda, opacidade." },
+      { "name": "duracao-camada", "value": "220ms", "purpose": "Entrada de modal e de camada sobreposta." },
+      { "name": "reduced-motion", "value": "MotionConfig reducedMotion=\"user\" + @media (prefers-reduced-motion: reduce)", "purpose": "Obrigatório: a personalidade pede movimento presente, então a alternativa não é opcional." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "pagina", "value": "1280px" },
+      { "name": "leitura", "value": "760px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botão Primário",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ação principal. O único elemento que pode ocupar área sólida de amarelo.",
+      "html": "<button class=\"ds-btn-primary\">Comprar ingresso</button>",
+      "css": ".ds-btn-primary { background: var(--color-accent, #F5C518); color: var(--color-accent-tinta, #0d0d12); font-family: Poppins, system-ui, sans-serif; font-size: 14px; font-weight: 700; padding: 10px 24px; border: none; border-radius: 8px; cursor: pointer; transition: opacity 150ms ease-out, box-shadow 150ms ease-out, transform 150ms ease-out; } .ds-btn-primary:hover { opacity: 0.9; box-shadow: 0 8px 20px rgba(245,197,24,0.45); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-accent, #F5C518); outline-offset: 2px; } .ds-btn-primary:active { transform: scale(0.95); }"
+    },
+    {
+      "name": "Botão Fantasma (só-ícone)",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Carrossel e fechar. Círculo de 38px; exige aria-label porque não tem texto.",
+      "html": "<button class=\"ds-btn-ghost\" aria-label=\"Ver próximos filmes\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m9 18 6-6-6-6\"/></svg></button>",
+      "css": ".ds-btn-ghost { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; background: transparent; color: var(--color-tinta-suave, #bdbdc4); border: 1px solid rgba(255,255,255,0.12); border-radius: 9999px; cursor: pointer; transition: color 150ms ease-out, border-color 150ms ease-out, transform 150ms ease-out; } .ds-btn-ghost svg { width: 18px; height: 18px; } .ds-btn-ghost:hover { color: var(--color-accent, #F5C518); border-color: var(--color-accent, #F5C518); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--color-accent, #F5C518); outline-offset: 2px; } .ds-btn-ghost:active { transform: scale(0.9); }"
+    },
+    {
+      "name": "Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Selo de formato e categoria (LEG, HD, 3D). Selecionado inverte para amarelo, nunca ganha borda colorida.",
+      "html": "<span class=\"ds-chip\">LEG</span><span class=\"ds-chip ds-chip--on\">HD</span>",
+      "css": ".ds-chip { display: inline-block; background: var(--color-superficie-alta, #1c1c24); color: var(--color-tinta-suave, #bdbdc4); font-family: Poppins, system-ui, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; padding: 5px 10px; border-radius: 4px; margin-right: 6px; } .ds-chip--on { background: var(--color-accent, #F5C518); color: var(--color-accent-tinta, #0d0d12); }"
+    },
+    {
+      "name": "Card de Filme",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Unidade da grade de cartazes. Plano em repouso; elevação de cartaz ao destacar. A borda é filete de luz, não contorno.",
+      "html": "<article class=\"ds-card\"><div class=\"ds-card__poster\"></div><h3 class=\"ds-card__title\">Cidade dos Sonhos</h3><p class=\"ds-card__meta\">14:20 · 17:40 · 21:00</p></article>",
+      "css": ".ds-card { width: 200px; background: var(--color-superficie, #14141a); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 16px; font-family: Poppins, system-ui, sans-serif; transition: box-shadow 150ms ease-out, border-color 150ms ease-out; } .ds-card__poster { aspect-ratio: 3/4; border-radius: 10px; background: linear-gradient(158deg, #142a4a 0%, #070d18 70%, var(--color-fundo, #0d0d12) 100%); margin-bottom: 12px; } .ds-card__title { color: #fff; font-size: 16px; font-weight: 700; margin: 0 0 4px; } .ds-card__meta { color: var(--color-tinta-fraca, #9a9aa2); font-size: 12px; margin: 0; } .ds-card:hover { border-color: rgba(245,197,24,0.4); box-shadow: 0 30px 70px rgba(0,0,0,0.55); }"
+    },
+    {
+      "name": "Campo de Busca",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Pílula sobre superfície. Sem glow próprio: brilho amarelo pertence à ação primária.",
+      "html": "<input class=\"ds-input\" type=\"search\" placeholder=\"Buscar filme\" aria-label=\"Buscar filme\" />",
+      "css": ".ds-input { background: var(--color-superficie, #14141a); color: var(--color-tinta, #eaeaea); font-family: Poppins, system-ui, sans-serif; font-size: 13px; padding: 10px 40px 10px 20px; border: 1px solid rgba(255,255,255,0.06); border-radius: 9999px; width: 200px; outline: none; transition: border-color 150ms ease-out; } .ds-input::placeholder { color: var(--color-tinta-fraca, #9a9aa2); } .ds-input:hover { border-color: rgba(255,255,255,0.14); } .ds-input:focus-visible { outline: 2px solid var(--color-accent, #F5C518); outline-offset: 2px; }"
+    },
+    {
+      "name": "Navegação",
+      "kind": "nav",
+      "refersTo": "nav",
+      "description": "Barra fixa com fundo translúcido por token (fundo/92). Única exceção tolerada ao veto de backdrop-filter, porque a faixa é fina.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav__item ds-nav__item--on\" href=\"#\">INÍCIO</a><a class=\"ds-nav__item\" href=\"#\">FILMES</a><a class=\"ds-nav__item\" href=\"#\">PREÇOS</a></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 40px; background: rgba(13,13,18,0.92); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(255,255,255,0.05); padding: 18px 32px; font-family: Poppins, system-ui, sans-serif; } .ds-nav__item { color: var(--color-tinta-suave, #bdbdc4); font-size: 13px; font-weight: 700; text-decoration: none; transition: color 150ms ease-out; } .ds-nav__item:hover, .ds-nav__item--on { color: var(--color-accent, #F5C518); } .ds-nav__item:focus-visible { outline: 2px solid var(--color-accent, #F5C518); outline-offset: 2px; border-radius: 2px; }"
+    },
+    {
+      "name": "Diálogo",
+      "kind": "custom",
+      "refersTo": "dialog",
+      "description": "Componente de assinatura: filete de marquise no topo, halo radial no canto, borda de acento a 18%. Fecha por X, backdrop ou Escape.",
+      "html": "<div class=\"ds-dialog\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Minhas reservas\"><div class=\"ds-dialog__filete\"></div><div class=\"ds-dialog__halo\"></div><div class=\"ds-dialog__head\"><p class=\"ds-dialog__eyebrow\">CONTA</p><h2 class=\"ds-dialog__title\">Minhas reservas</h2></div></div>",
+      "css": ".ds-dialog { position: relative; width: 380px; overflow: hidden; border-radius: 24px; border: 1px solid rgba(245,197,24,0.18); background: linear-gradient(145deg, rgba(22,20,15,0.98) 0%, rgba(13,13,18,0.99) 100%); box-shadow: 0 0 100px rgba(245,197,24,0.07), 0 40px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06); font-family: Poppins, system-ui, sans-serif; } .ds-dialog__filete { position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(245,197,24,0.5), transparent); } .ds-dialog__halo { position: absolute; top: -40px; left: -40px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(circle, rgba(245,197,24,0.15) 0%, transparent 70%); pointer-events: none; } .ds-dialog__head { position: relative; padding: 24px; border-bottom: 1px solid rgba(255,255,255,0.05); } .ds-dialog__eyebrow { color: var(--color-accent, #F5C518); font-size: 10px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 4px; } .ds-dialog__title { color: #fff; font-size: 24px; font-weight: 900; margin: 0; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "A Marquise Acesa",
+    "overview": "Kinoplekis é a fachada de um multiplex de shopping vista à noite: o saguão está escuro, e o que ilumina tudo é o amarelo da marquise. O fundo é quase preto e não pede atenção; o amarelo #F5C518 carrega a marca sozinho, sem cor secundária dividindo o palco. Não existe modo claro, e isso não é omissão — cinema se vê no escuro.\n\nA densidade é de rede grande, não de cinema de rua com curadoria. A grade de cartazes é cheia, os horários aparecem todos, o preço fica visível antes do clique. O peso tipográfico é alto por padrão, o que dá a voz enérgica que o produto quer e torna o texto em peso normal um evento raro, reservado a corpo de leitura longa.\n\nO que este sistema rejeita: template genérico de cinema, onde trocar a logo bastaria para virar outra rede; e cara de projeto de curso, com card de sombra padrão, botão azul e estado de erro inexistente. A defesa contra o primeiro é o tratamento. A defesa contra o segundo é acabamento.",
+    "keyCharacteristics": [
+      "Escuro por definição, sem variante clara",
+      "Um único acento, sem cor secundária",
+      "Peso tipográfico alto como padrão, não como ênfase",
+      "Densidade de rede grande: informação à mostra, não escondida atrás de clique",
+      "Movimento presente e curto — 150ms, sempre desacelerando",
+      "Estrutura de cinema convencional, tratamento autoral"
+    ],
+    "rules": [
+      { "name": "A Regra da Voz Única", "body": "O amarelo é a única cor saturada do sistema. Adicionar um segundo acento — verde de sucesso, vermelho de erro, azul de link — é proibido; estado se comunica por peso, opacidade e ícone. Exceção fechada: cores de marca de terceiros e as paletas de arte dos gradientes de cartaz.", "section": "colors" },
+      { "name": "A Regra dos Dois Degraus", "body": "Existem exatamente dois níveis acima do fundo: superficie e superficie-alta. Precisar de um terceiro é sinal de hierarquia mal resolvida, não de token faltando. Card dentro de card é sempre erro.", "section": "colors" },
+      { "name": "A Regra do Hex Proibido", "body": "Nenhum valor de cor neutro literal no .tsx. Todo neutro vem de token do front/src/index.css, como classe ou como variável quando o valor entra em style inline. Uma exceção documentada: o QR do PIX, porque a lib gera o PNG fora do DOM e não resolve var().", "section": "colors" },
+      { "name": "A Regra do Peso Extremo", "body": "Contraste tipográfico se faz com 900 contra 400, nunca com 600 contra 500. Peso intermediário em bloco é sintoma de hierarquia indecisa.", "section": "typography" },
+      { "name": "A Regra do Piso de 10px", "body": "Nenhum texto abaixo de 10px, em nenhum lugar. Os seis usos de 9px em chips são dívida conhecida, não precedente. No totem o piso sobe para 14px: quiosque se lê em pé, a um braço de distância.", "section": "typography" },
+      { "name": "A Regra da Escala Fechada", "body": "Os cinco papéis são a escala inteira. Os 22 tamanhos arbitrários no código são herança de handoff, em migração. Introduzir um sexto tamanho exige justificar por que nenhum dos cinco serve.", "section": "typography" },
+      { "name": "A Regra do Repouso Plano", "body": "Superfície em repouso não tem sombra. Sombra é resposta a estado — hover, seleção, sobreposição. Se um card nasce com sombra sem interação, ele está imitando material de 2014.", "section": "elevation" },
+      { "name": "A Regra do Vidro Vetado", "body": "backdrop-filter em área grande é proibido. Já foi testado e removido dos modais: filtro em tela cheia re-rasteriza a página a cada frame do fade, e com fundo a 98% de opacidade o efeito nem aparecia.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do tirar todo neutro de token: bg-superficie, text-tinta-suave, max-w-pagina, px-gutter, rounded-chip.",
+      "Do usar bg-fundo/92 quando precisar de translucidez — token com modificador de opacidade, que só existe porque a cor é token.",
+      "Do manter a grade de cartazes. Ela é a cara de cinema e sustenta o realismo; a autoria entra no tratamento, nunca em demolir a estrutura.",
+      "Do desacelerar sempre: ease-out em 150ms para estado, 220ms para entrada de camada.",
+      "Do dar nome acessível a todo elemento só-ícone, via chave a11y.* nos dois idiomas.",
+      "Do tratar prefers-reduced-motion como parte do trabalho, não como extra.",
+      "Do manter contraste de corpo em 4.5:1 no mínimo. O par mais apertado do sistema é tinta-fraca sobre superficie-alta, a 6.06:1."
+    ],
+    "donts": [
+      "Don't escrever hex neutro literal no .tsx. Regressão direta.",
+      "Don't introduzir segundo acento. Sem verde de sucesso, sem vermelho de erro, sem azul de link.",
+      "Don't parecer template genérico de cinema — se trocar a logo e ninguém notar a diferença, a tela falhou.",
+      "Don't parecer projeto de curso: card com sombra padrão em repouso, botão azul, espaçamento largado, estado de erro ausente, dado de mentira óbvio.",
+      "Don't copiar o Kinoplex real. É releitura, não reprodução.",
+      "Don't cair em slop de IA: gradiente roxo sobre branco, todas as seções com a mesma forma, eyebrow em caixa alta acima de cada título, fonte de sistema.",
+      "Don't usar backdrop-filter em área grande.",
+      "Don't empilhar card dentro de card, nem inventar um terceiro degrau de superfície.",
+      "Don't depender de hover para qualquer informação que o totem precise — quiosque é touch e não tem estado de hover.",
+      "Don't deixar retângulo de gradiente onde deveria haver cartaz. Os POSTER_GRADIENTS são dívida assumida, não padrão a replicar."
+    ]
+  }
+}

@@ -23,7 +23,7 @@ export function Toaster() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, x: 40, scale: 0.9 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="pointer-events-auto flex items-center gap-2.5 max-w-xs bg-[#14141a] border border-[rgba(245,197,24,0.45)] text-[#eaeaea] text-sm font-medium px-4 py-3 rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.5)]"
+            className="pointer-events-auto flex items-center gap-2.5 max-w-xs bg-superficie border border-[rgba(245,197,24,0.45)] text-tinta text-sm font-medium px-4 py-3 rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.5)]"
           >
             <Info className="w-4 h-4 text-accent shrink-0" />
             {t.msg}

@@ -33,7 +33,7 @@ function CapaPoster({ post, alto = false }: { post: Post; alto?: boolean }) {
   return (
     <div
       className={`relative w-full overflow-hidden rounded-2xl ${alto ? 'aspect-[3/4]' : 'aspect-[16/10]'}`}
-      style={{ background: `linear-gradient(150deg, ${c1} 0%, ${c2} 68%, #0a0a0e 100%)`, transformStyle: 'preserve-3d' }}
+      style={{ background: `linear-gradient(150deg, ${c1} 0%, ${c2} 68%, var(--color-fundo-profundo) 100%)`, transformStyle: 'preserve-3d' }}
     >
       {/* Ranhuras verticais: textura de cartaz impresso */}
       <div
@@ -67,7 +67,7 @@ function Cabecalho({ onVoltar, label }: { onVoltar: () => void; label: string })
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/5 bg-[rgba(13,13,18,0.92)]">
-      <div className="mx-auto flex max-w-[1180px] items-center justify-between px-6 py-4">
+      <div className="mx-auto flex max-w-pagina items-center justify-between px-gutter py-4">
         <button
           onClick={onVoltar}
           className="group flex cursor-pointer items-center gap-2 text-[13px] font-bold text-zinc-400 transition-colors duration-150 ease-out hover:text-accent active:scale-95"
@@ -154,7 +154,7 @@ function BlogIndex() {
   ];
 
   return (
-    <div className="min-h-screen w-full bg-[#0d0d12] font-sans text-[#eaeaea]">
+    <div className="min-h-screen w-full bg-fundo font-sans text-tinta">
       <Cabecalho onVoltar={() => navigate('/')} label={t('blog.back')} />
 
       {/* HERO */}
@@ -194,7 +194,7 @@ function BlogIndex() {
           }}
         />
 
-        <div className="relative mx-auto grid max-w-[1180px] grid-cols-1 items-center gap-12 px-6 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:py-24">
+        <div className="relative mx-auto grid max-w-pagina grid-cols-1 items-center gap-12 px-gutter py-16 lg:grid-cols-[1.1fr_0.9fr] lg:py-24">
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
@@ -212,7 +212,7 @@ function BlogIndex() {
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <button
                 onClick={() => navigate(`/blog/${destaques[0]?.slug ?? POSTS[0].slug}`)}
-                className="cursor-pointer rounded-full bg-accent px-6 py-3 text-[12.5px] font-black uppercase tracking-[0.06em] text-[#0d0d12] transition-transform duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
+                className="cursor-pointer rounded-full bg-accent px-6 py-3 text-[12.5px] font-black uppercase tracking-[0.06em] text-accent-tinta transition-transform duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
               >
                 {t('blog.readManifesto')}
               </button>
@@ -285,7 +285,7 @@ function BlogIndex() {
       </section>
 
       {/* FILTROS + GRADE */}
-      <section className="mx-auto max-w-[1180px] px-6 py-14">
+      <section className="mx-auto max-w-pagina px-gutter py-14">
         <div className="mb-8 flex flex-wrap items-center gap-2">
           {filtros.map(f => (
             <button
@@ -293,7 +293,7 @@ function BlogIndex() {
               onClick={() => setFiltro(f.id)}
               className={`cursor-pointer rounded-full border px-4 py-2 text-[12px] font-bold transition-colors duration-150 ease-out active:scale-95 ${
                 filtro === f.id
-                  ? 'border-accent bg-accent text-[#0d0d12]'
+                  ? 'border-accent bg-accent text-accent-tinta'
                   : 'border-white/12 text-zinc-400 hover:border-accent/50 hover:text-accent'
               }`}
             >
@@ -316,7 +316,7 @@ function BlogIndex() {
                 onClick={() => navigate(`/blog/${post.slug}`)}
               >
                 <Tilt3D className="h-full">
-                  <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/8 bg-[#14141a] transition-colors duration-200 ease-out group-hover:border-accent/45">
+                  <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-white/8 bg-superficie transition-colors duration-200 ease-out group-hover:border-accent/45">
                     <div style={{ transform: 'translateZ(26px)' }}>
                       <CapaPoster post={post} />
                     </div>
@@ -360,7 +360,7 @@ function BlogPost({ post }: { post: Post }) {
   const [c1] = post.capa;
 
   return (
-    <div className="min-h-screen w-full bg-[#0d0d12] font-sans text-[#eaeaea]">
+    <div className="min-h-screen w-full bg-fundo font-sans text-tinta">
       <motion.div
         aria-hidden
         style={{ scaleX: progresso, transformOrigin: '0%' }}
@@ -368,7 +368,7 @@ function BlogPost({ post }: { post: Post }) {
       />
       <Cabecalho onVoltar={() => navigate('/blog')} label={t('blog.backToBlog')} />
 
-      <article className="mx-auto max-w-[760px] px-6 pb-24 pt-12">
+      <article className="mx-auto max-w-leitura px-gutter pb-24 pt-12">
         <div className="mb-3 flex items-center gap-3 text-[11px] font-black uppercase tracking-widest">
           <span className="text-accent">{CATEGORIAS[post.categoria]}</span>
           <span className="text-zinc-700">·</span>
@@ -421,7 +421,7 @@ function BlogPost({ post }: { post: Post }) {
                 <ul key={i} className="space-y-2.5">
                   {bloco.itens?.map((item, j) => (
                     <li key={j} className="flex gap-3 text-[15px] leading-relaxed text-zinc-300">
-                      <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
+                      <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
                       {item}
                     </li>
                   ))}
@@ -432,7 +432,7 @@ function BlogPost({ post }: { post: Post }) {
               return (
                 <pre
                   key={i}
-                  className="no-scrollbar overflow-x-auto rounded-xl border border-white/8 bg-[#0a0a0e] p-4 text-[13px] leading-relaxed text-zinc-300"
+                  className="no-scrollbar overflow-x-auto rounded-xl border border-white/8 bg-fundo-profundo p-4 text-[13px] leading-relaxed text-zinc-300"
                 >
                   <code>{bloco.texto}</code>
                 </pre>
@@ -456,7 +456,7 @@ function BlogPost({ post }: { post: Post }) {
                 className="group cursor-pointer text-left"
               >
                 <Tilt3D intensidade={9}>
-                  <div className="overflow-hidden rounded-xl border border-white/8 bg-[#14141a] transition-colors duration-200 ease-out group-hover:border-accent/45">
+                  <div className="overflow-hidden rounded-xl border border-white/8 bg-superficie transition-colors duration-200 ease-out group-hover:border-accent/45">
                     <CapaPoster post={p} />
                     <p className="p-3.5 text-[13px] font-bold leading-snug text-white">{p.titulo}</p>
                   </div>

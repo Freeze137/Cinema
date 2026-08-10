@@ -1,14 +1,69 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
-/* Design tokens do Kinoplekis (handoff claude.ai/design) */
+/*
+  Design tokens do Kinoplekis.
+  Regra: nenhum hex neutro solto nos componentes — sempre um token daqui.
+  Exceções permitidas: cores de marca de terceiros (bandeiras de cartão,
+  bandeiras de país) e paletas de arte dos gradientes de pôster.
+*/
 @theme {
+  /* Superfícies — três níveis, do fundo para a frente */
+  --color-fundo: #0d0d12;
+  --color-fundo-profundo: #0a0a0e;
+  --color-superficie: #14141a;
+  --color-superficie-alta: #1c1c24;
+
+  /* Tinta — três níveis de hierarquia de texto */
+  --color-tinta: #eaeaea;
+  --color-tinta-suave: #bdbdc4;
+  --color-tinta-fraca: #9a9aa2;
+
+  /* Marca */
   --color-accent: #F5C518;
+  --color-accent-tinta: #0d0d12; /* texto/ícone sobre o amarelo */
+
+  /* Layout — um container por papel, nunca valor solto */
+  --container-pagina: 1280px;  /* max-w-pagina — grade principal */
+  --container-leitura: 760px;  /* max-w-leitura — coluna de texto corrido */
+  --spacing-gutter: 2rem;      /* px-gutter — respiro lateral do container */
+
+  /* Raios */
+  --radius-chip: 4px;          /* rounded-chip — badge, tag, selo */
+
   --font-sans: "Poppins", system-ui, sans-serif;
 }
 
 body {
-  background-color: #0d0d12;
-  color: #eaeaea;
-  font-family: "Poppins", system-ui, sans-serif;
+  background-color: var(--color-fundo);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+}
+
+/*
+  Foco visível global. O projeto tem ~24 elementos interativos só na Home e
+  quase nenhum tratava foco de teclado — quem navega por Tab ficava sem saber
+  onde estava. Resolver por elemento seria drift garantido; a regra vive aqui.
+  :focus-visible (e não :focus) mantém o anel fora do clique de mouse.
+*/
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/*
+  A personalidade do Kinoplekis pede movimento presente, o que torna esta regra
+  obrigatória. Cobre as transições CSS; o framer-motion é coberto pelo
+  MotionConfig reducedMotion="user" em App.tsx.
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

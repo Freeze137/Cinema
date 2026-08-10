@@ -318,7 +318,7 @@ export function SeatSelection() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#0f0f13]">
+      <div className="flex items-center justify-center h-screen bg-fundo">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin text-orange-500 mx-auto mb-4" />
           <p className="text-zinc-400">Carregando sessão...</p>
@@ -329,7 +329,7 @@ export function SeatSelection() {
 
   if (!sessao) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#0f0f13]">
+      <div className="flex items-center justify-center h-screen bg-fundo">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <p className="text-zinc-400">{erro || 'Sessão não encontrada'}</p>
@@ -356,7 +356,7 @@ export function SeatSelection() {
 
   return (
     <ErrorBoundary onReset={() => setEtapa('assentos')} resetLabel="Voltar para assentos">
-    <div className="min-h-screen bg-[#0f0f13] text-zinc-100 p-6">
+    <div className="min-h-screen bg-fundo text-zinc-100 p-6">
       <div className="max-w-6xl mx-auto">
         {/* HEADER */}
         <div className="flex items-center gap-4 mb-8">

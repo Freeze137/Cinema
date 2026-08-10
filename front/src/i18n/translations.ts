@@ -13,6 +13,14 @@ export const LANGUAGES: Array<{ code: Lang; label: string; nome: string }> = [
 type Dict = Record<string, string>;
 
 const pt: Dict = {
+  // Acessibilidade — nomes de elementos que só têm ícone. Não aparecem na tela;
+  // são o que o leitor de tela anuncia no lugar de "botão".
+  'a11y.close': 'Fechar',
+  'a11y.prevMovies': 'Ver filmes anteriores',
+  'a11y.nextMovies': 'Ver próximos filmes',
+  'a11y.facebook': 'Kinoplekis no Facebook',
+  'a11y.twitter': 'Kinoplekis no X',
+  'a11y.instagram': 'Kinoplekis no Instagram',
   // Topbar
   'topbar.promo': 'Kinoplekis Um Mês Grátis',
   'topbar.promoAccent': 'Assine Já !',
@@ -188,6 +196,12 @@ const en: Dict = {
   'topbar.promoAccent': 'Subscription !',
   'topbar.about': 'About Us',
   'topbar.faqs': 'FAQS',
+  'a11y.close': 'Close',
+  'a11y.prevMovies': 'See previous movies',
+  'a11y.nextMovies': 'See next movies',
+  'a11y.facebook': 'Kinoplekis on Facebook',
+  'a11y.twitter': 'Kinoplekis on X',
+  'a11y.instagram': 'Kinoplekis on Instagram',
   'nav.home': 'HOME',
   'nav.movie': 'MOVIE',
   'nav.reserva': 'BOOKING',
